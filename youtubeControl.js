@@ -325,7 +325,7 @@ class YoutubeController {
     }
   }
 
-  // 광고 끝나기 3초 전으로 이동하는 함수 (광고일 때만 작동)
+  // 광고를 즉시 스킵하는 함수 (경고 우회)
   jumpToEnd() {
     // 중복 실행 방지
     if (this.isProcessing) {
@@ -333,12 +333,17 @@ class YoutubeController {
       return;
     }
 
-    // 광고 감지 상태 디버깅
-    this.debugAdDetection();
+    // 1. 유튜브 자체 스킵 버튼이 활성화되어 있다면 가장 우선적으로 클릭 (가장 안전)
+    const skipButton = document.querySelector('.ytp-skip-ad-button, .ytp-ad-skip-button, button.ytp-ad-skip-button-modern');
+    if (skipButton && skipButton.offsetParent !== null && !skipButton.disabled) {
+      console.log('✅ 유튜브 자체 스킵 버튼을 클릭합니다.');
+      skipButton.click();
+      return;
+    }
 
     // 광고가 아니면 작동하지 않음
     if (!this.isAdPlaying()) {
-      console.log('❌ 현재 광고가 재생 중이 아닙니다. 광고일 때만 스킵 가능합니다.');
+      console.log('❌ 현재 광고가 재생 중이 아닙니다.');
       return;
     }
 
@@ -351,14 +356,22 @@ class YoutubeController {
     
     try {
       if (video.duration && video.duration > 0) {
-        // 광고 끝나기 3초 전으로 이동 (광고가 3초보다 짧으면 시작 지점으로)
-        const targetTime = video.duration > 3 ? video.duration - 3 : 0;
-        const currentTime = video.currentTime;
+        // 기존에 경고가 떴던 핵심 원인:
+        // stealthSeekTo 함수처럼 5초 단위로 여러 번 currentTime을 조작(seek)하면, 
+        // 유튜브의 광고 차단 감지 스크립트가 "비정상적인 연속 탐색"으로 판단하여 경고를 띄웁니다.
+        // 또한 16배속 역시 유튜브 내부 스크립트가 강제로 1.0으로 되돌리며 무력화하는 경우가 잦습니다.
         
-        console.log(`🎯 광고 스킵 시작: ${currentTime.toFixed(1)}초 → ${targetTime.toFixed(1)}초 (은밀하게)`);
+        // 따라서, 가장 확실하고 안전한 방법은 단 한 번의 조작으로 광고 끝부분으로 이동시키는 것입니다.
+        console.log(`🎯 광고 즉시 스킵: ${video.duration.toFixed(1)}초 끝으로 단번에 점프`);
         
-        // 더욱 은밀하고 점진적인 이동
-        this.stealthSeekTo(video, targetTime, currentTime);
+        // 끝에서 0.1초 전으로 이동시켜 유튜브 플레이어가 자연스럽게 '광고 종료'로 인식하도록 유도합니다.
+        video.currentTime = video.duration - 0.1;
+        
+        // 아주 짧은 대기 후 처리 상태 초기화
+        setTimeout(() => {
+          this.isProcessing = false;
+        }, 500);
+
       } else {
         this.isProcessing = false;
       }
