@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>즐겨찾기 검사 및 정리 - Tiny Mouse Gesture</title>
+  <style>
+    :root {
+      --primary: #1a73e8;
+      --primary-hover: #1557b0;
+      --bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --text-main: #202124;
+      --text-sub: #5f6368;
+      --border: #dadce0;
+      --danger: #d93025;
+      --danger-bg: #fce8e6;
+      --danger-border: #fad2cf;
+      --warning: #f29900;
+      --warning-bg: #fef7e0;
+      --warning-border: #feefc3;
+      --success: #188038;
+      --success-bg: #e6f4ea;
+      --success-border: #ceead6;
+      --radius: 8px;
+      --shadow: 0 1px 3px rgba(60,64,67,0.12), 0 1px 2px rgba(60,64,67,0.24);
+      --shadow-hover: 0 4px 8px rgba(60,64,67,0.15), 0 1px 3px rgba(60,64,67,0.2);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text-main);
+      line-height: 1.5;
+      padding: 24px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    /* 헤더 */
+    .header {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 24px 28px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .header-icon {
+      width: 44px;
+      height: 44px;
+      background: #e8f0fe;
+      color: var(--primary);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+    }
+
+    .header-titles h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .header-titles p {
+      font-size: 13px;
+      color: var(--text-sub);
+      margin-top: 4px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: white;
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+    .btn-danger:hover:not(:disabled) {
+      background: #c5221f;
+    }
+
+    .btn-outline {
+      background: white;
+      color: var(--text-main);
+      border-color: var(--border);
+    }
+    .btn-outline:hover:not(:disabled) {
+      background: #f1f3f4;
+    }
+
+    /* 요약 카드 대시보드 */
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .stat-card {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      border-left: 4px solid var(--border);
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .stat-card:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-hover);
+    }
+
+    .stat-card.card-all { border-left-color: #5f6368; }
+    .stat-card.card-danger { border-left-color: var(--danger); }
+    .stat-card.card-warning { border-left-color: var(--warning); }
+    .stat-card.card-success { border-left-color: var(--success); }
+    .stat-card.card-deleted { border-left-color: #9aa0a6; }
+
+    .stat-label {
+      font-size: 13px;
+      color: var(--text-sub);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-value {
+      font-size: 24px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-top: 6px;
+    }
+
+    /* 프로그레스 바 */
+    .progress-section {
+      background: var(--card-bg);
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      box-shadow: var(--shadow);
+      margin-bottom: 20px;
+      display: none;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 13px;
+      margin-bottom: 8px;
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 8px;
+      background: #e8eaed;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--primary);
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+
+    .progress-current-url {
+      font-size: 12px;
+      color: var(--text-sub);
+      margin-top: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* 필터 및 액션 툴바 */
+    .toolbar {
+      background: var(--card-bg);
+      border-radius: var(--radius) var(--radius) 0 0;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .toolbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 4px;
+      background: #f1f3f4;
+      padding: 4px;
+      border-radius: 6px;
+    }
+
+    .tab-btn {
+      padding: 6px 12px;
+      border: none;
+      background: transparent;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-sub);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: white;
+      color: var(--text-main);
+      box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    }
+
+    .search-input {
+      padding: 7px 12px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 13px;
+      width: 280px;
+      outline: none;
+    }
+    .search-input:focus {
+      border-color: var(--primary);
+    }
+
+    .toolbar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* 테이블 영역 */
+    .table-container {
+      background: var(--card-bg);
+      border-radius: 0 0 var(--radius) var(--radius);
+      box-shadow: var(--shadow);
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 13px;
+    }
+
+    th {
+      background: #fafafa;
+      padding: 12px 16px;
+      font-weight: 600;
+      color: var(--text-sub);
+      border-bottom: 1px solid var(--border);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid #f1f3f4;
+      vertical-align: middle;
+    }
+
+    tr:hover td {
+      background-color: #fcfcfc;
+    }
+
+    .th-checkbox, .td-checkbox {
+      width: 40px;
+      text-align: center;
+    }
+
+    .checkbox {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+      accent-color: var(--primary);
+    }
+
+    /* 상태 뱃지 */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .badge-dead, .badge-account_dead, .badge-blog_dead {
+      background: var(--danger-bg);
+      color: var(--danger);
+      border: 1px solid var(--danger-border);
+    }
+
+    .badge-warning {
+      background: var(--warning-bg);
+      color: #b06000;
+      border: 1px solid var(--warning-border);
+    }
+
+    .badge-ok {
+      background: var(--success-bg);
+      color: var(--success);
+      border: 1px solid var(--success-border);
+    }
+
+    .badge-pending {
+      background: #f1f3f4;
+      color: #5f6368;
+      border: 1px solid #dadce0;
+    }
+
+    .badge-deleted {
+      background: #f1f3f4;
+      color: #80868b;
+      text-decoration: line-through;
+      border: 1px solid #dadce0;
+    }
+
+    /* 북마크 정보 */
+    .bookmark-meta {
+      max-width: 320px;
+    }
+
+    .bookmark-title {
+      font-weight: 600;
+      color: var(--text-main);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bookmark-path {
+      font-size: 11px;
+      color: var(--text-sub);
+      margin-top: 2px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .bookmark-url {
+      max-width: 260px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      color: var(--primary);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .bookmark-url:hover {
+      text-decoration: underline;
+    }
+
+    .reason-text {
+      font-size: 12px;
+      color: var(--text-sub);
+      max-width: 260px;
+    }
+
+    .reason-text.danger {
+      color: var(--danger);
+      font-weight: 500;
+    }
+    .reason-text.warning {
+      color: #b06000;
+    }
+
+    .btn-delete-row {
+      padding: 4px 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--danger);
+      font-size: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .btn-delete-row:hover:not(:disabled) {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+    }
+
+    /* 빈 상태 안내 */
+    .empty-state {
+      padding: 48px 20px;
+      text-align: center;
+      color: var(--text-sub);
+    }
+    .empty-state-icon {
+      font-size: 40px;
+      margin-bottom: 12px;
+    }
+    .empty-state-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 6px;
+    }
+
+    /* 알림 토스트 */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #323232;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 6px;
+      font-size: 13px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+      z-index: 1000;
+      display: none;
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- 헤더 -->
+    <header class="header">
+      <div class="header-left">
+        <div class="header-icon">🔖</div>
+        <div class="header-titles">
+          <h1>즐겨찾기 검사 및 정리 도구</h1>
+          <p>죽은 웹사이트, 삭제/정지된 X(트위터), 인스타그램, 블로그 계정을 스마트하게 찾아 정리합니다.</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button id="backupBtn" class="btn btn-outline" title="삭제 전 북마크를 안전하게 HTML 파일로 백업합니다">
+          💾 북마크 백업 (.html)
+        </button>
+        <button id="startScanBtn" class="btn btn-primary">
+          🚀 검사 시작
+        </button>
+        <button id="stopScanBtn" class="btn btn-outline" style="display: none;">
+          ⏸️ 검사 일시중단
+        </button>
+      </div>
+    </header>
+
+    <!-- 통계 카드 -->
+    <section class="dashboard">
+      <div class="stat-card card-all" data-filter="all">
+        <span class="stat-label">📁 전체 북마크</span>
+        <span class="stat-value" id="statAll">0</span>
+      </div>
+      <div class="stat-card card-danger" data-filter="issues">
+        <span class="stat-label">🔴 문제 발견 (삭제 권장)</span>
+        <span class="stat-value" id="statIssues" style="color: var(--danger);">0</span>
+      </div>
+      <div class="stat-card card-warning" data-filter="warning">
+        <span class="stat-label">🟡 주의 / 확인 필요</span>
+        <span class="stat-value" id="statWarning" style="color: #b06000;">0</span>
+      </div>
+      <div class="stat-card card-success" data-filter="ok">
+        <span class="stat-label">🟢 정상 사이트</span>
+        <span class="stat-value" id="statOk" style="color: var(--success);">0</span>
+      </div>
+      <div class="stat-card card-deleted" data-filter="deleted">
+        <span class="stat-label">🗑️ 삭제 완료됨</span>
+        <span class="stat-value" id="statDeleted">0</span>
+      </div>
+    </section>
+
+    <!-- 진행 상태 바 -->
+    <section id="progressSection" class="progress-section">
+      <div class="progress-header">
+        <span id="progressText" style="font-weight: 600;">검사 준비 중...</span>
+        <span id="progressPercent" style="font-weight: 600; color: var(--primary);">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div id="progressBarFill" class="progress-bar-fill"></div>
+      </div>
+      <div id="progressCurrentUrl" class="progress-current-url">...</div>
+    </section>
+
+    <!-- 필터 및 일괄 작업 툴바 -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <div class="filter-tabs">
+          <button class="tab-btn active" data-tab="issues">🔴 문제 발견 (<span id="tabCountIssues">0</span>)</button>
+          <button class="tab-btn" data-tab="all">전체 (<span id="tabCountAll">0</span>)</button>
+          <button class="tab-btn" data-tab="warning">🟡 주의 (<span id="tabCountWarning">0</span>)</button>
+          <button class="tab-btn" data-tab="ok">🟢 정상 (<span id="tabCountOk">0</span>)</button>
+          <button class="tab-btn" data-tab="deleted">🗑️ 삭제됨 (<span id="tabCountDeleted">0</span>)</button>
+        </div>
+        <input type="text" id="searchInput" class="search-input" placeholder="제목, URL 또는 에러 검색 (404, 정지, 401 등)...">
+      </div>
+      <div class="toolbar-right">
+        <label style="font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer;">
+          <input type="checkbox" id="selectAllIssues" class="checkbox">
+          <span>문제 항목 전체 선택</span>
+        </label>
+        <button id="deleteSelectedBtn" class="btn btn-danger" disabled>
+          🗑️ 선택 항목 삭제 (<span id="selectedCount">0</span>)
+        </button>
+      </div>
+    </div>
+
+    <!-- 북마크 테이블 -->
+    <div class="table-container">
+      <table id="bookmarkTable">
+        <thead>
+          <tr>
+            <th class="th-checkbox">
+              <input type="checkbox" id="selectAllCheckbox" class="checkbox" title="현재 보이는 목록 전체 선택">
+            </th>
+            <th>상태 진단</th>
+            <th>북마크 정보</th>
+            <th>웹 주소 (URL)</th>
+            <th>상세 사유</th>
+            <th style="text-align: center;">관리</th>
+          </tr>
+        </thead>
+        <tbody id="bookmarkTableBody">
+          <tr>
+            <td colspan="6">
+              <div class="empty-state">
+                <div class="empty-state-icon">🔍</div>
+                <div class="empty-state-title">검사를 시작해주세요</div>
+                <p>상단의 [🚀 검사 시작] 버튼을 누르면 즐겨찾기 상태를 검사합니다.</p>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script src="bookmarkCleaner.js" type="module"></script>
+</body>
+</html>
+

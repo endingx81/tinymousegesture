@@ -24,7 +24,10 @@ const messages = {
     searchOnJavHD: "Search \"%s\" on JAVHD",
     // DCInside URL Redirect
     dcRedirectText: "DCInside URL Auto Redirect",
-    dcRedirectDescription: "Automatically redirects mobile DCInside URLs to desktop version"
+    dcRedirectDescription: "Automatically redirects mobile DCInside URLs to desktop version",
+    bookmarkCleanerTitle: "Bookmark Health Check & Clean",
+    bookmarkCleanerDesc: "Clean dead links & suspended accounts",
+    bookmarkCleanerOpenBtn: "Open"
   },
   ko: {
     extensionName: "마우스 제스처 & 복사방지 해제",
@@ -48,7 +51,10 @@ const messages = {
     searchOnJavHD: "JAVHD에서 \"%s\" 검색",
     // DCInside URL Redirect
     dcRedirectText: "디시인사이드 URL 자동 변환",
-    dcRedirectDescription: "모바일 디시인사이드 URL을 자동으로 데스크탑 버전으로 변환합니다"
+    dcRedirectDescription: "모바일 디시인사이드 URL을 자동으로 데스크탑 버전으로 변환합니다",
+    bookmarkCleanerTitle: "즐겨찾기 검사 및 정리",
+    bookmarkCleanerDesc: "죽은 사이트 및 차단/삭제된 계정 정리",
+    bookmarkCleanerOpenBtn: "정리 도구 열기"
   },
   ja: {
     extensionName: "マウスジェスチャー & コピー保護解除",
@@ -68,7 +74,10 @@ const messages = {
     searchGoogleRemoveLabel: "Search Google for \"uncensored %s\"",
     // DCInside URL Redirect
     dcRedirectText: "DCInside URL自動リダイレクト",
-    dcRedirectDescription: "モバイルDCInside URLを自動的にデスクトップ版にリダイレクトします"
+    dcRedirectDescription: "モバイルDCInside URLを自動的にデスクトップ版にリダイレクトします",
+    bookmarkCleanerTitle: "ブックマーク確認と整理",
+    bookmarkCleanerDesc: "リンク切れや削除アカウントの整理",
+    bookmarkCleanerOpenBtn: "開く"
   },
   zh: {
     extensionName: "鼠标手势 & 复制保护解除",
@@ -88,7 +97,10 @@ const messages = {
     searchGoogleRemoveLabel: "在谷歌上搜索 \"uncensored %s\"",
     // DCInside URL Redirect
     dcRedirectText: "DCInside URL自动重定向",
-    dcRedirectDescription: "自动将移动端DCInside URL重定向到桌面版本"
+    dcRedirectDescription: "自动将移动端DCInside URL重定向到桌面版本",
+    bookmarkCleanerTitle: "书签检查与清理",
+    bookmarkCleanerDesc: "清理失效链接及封禁账号",
+    bookmarkCleanerOpenBtn: "打开"
   },
   zh_TW: {
     extensionName: "滑鼠手勢 & 複製保護解除",
@@ -105,7 +117,10 @@ const messages = {
     searchGoogleRemoveLabel: "在 Google 上搜尋 \"uncensored %s\"",
     // DCInside URL Redirect
     dcRedirectText: "DCInside URL自動重新導向",
-    dcRedirectDescription: "自動將行動版DCInside URL重新導向至桌面版本"
+    dcRedirectDescription: "自動將行動版DCInside URL重新導向至桌面版本",
+    bookmarkCleanerTitle: "書籤檢查與清理",
+    bookmarkCleanerDesc: "清理失效連結及封禁帳號",
+    bookmarkCleanerOpenBtn: "開啟"
   },
   es: {
     extensionName: "Gestos del Ratón & Bypass de Protección de Copia",

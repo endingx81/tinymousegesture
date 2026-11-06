@@ -1,9 +1,9 @@
-// 광고 및 팝업 차단 스크립트
+// adBlocker.js: 광고 및 악성 팝업, 투명 오버레이를 감지하고 차단하는 스크립트
 (function() {
   if (window.__AdBlockerInitialized) return;
   window.__AdBlockerInitialized = true;
   
-  const hostname = window.location.hostname;
+  const hostname = window.location.hostname.toLowerCase().replace(/^www\./, '');
   const isHitomiSite = hostname.includes('hitomi.la');
   const isTwidougaSite = hostname.includes('twidouga.net');
   const isSwiftUploadsSite = hostname.includes('swiftuploads.com');
@@ -15,40 +15,88 @@
   
   const blockedDomains = [
     'stripchatgirls', 'stripchat', 'chaturbate', 'livejasmin', 'biotrck',
-    'trafficjunky', 'adskeeper', 'ad-maven', 'kilojaya', 'satisfiednews',
+    'sivycafybemude', 'pemsrv', 'magsrv', '378ed00341',
+    'trafficjunky', 'adskeeper', 'ad-maven', 'admaven', 'kilojaya', 'satisfiednews',
     'gullible-thanks', 'tsyndicate', 'alfalfaemployeeresource', 'few-politics',
-    'waqool', 'rmhfrtnd', 'wpadmngr', 'mqy60aa7.shop'
+    'waqool', 'rmhfrtnd', 'wpadmngr', 'mqy60aa7.shop', 'popads', 'popcash',
+    'propellerads', 'adsterra', 'exoclick', 'hilltopads', 'monetag', 'clickadu',
+    'yadro', 'adclick', 'doubleclick', 'onclick', 'vidoomy', 'clickaine',
+    'richpush', 'clickguard', 'zeroredirect', 'adrevenue', 'adsupply',
+    'adcolony', 'taboola', 'outbrain', 'bet365', '1xbet'
   ];
-  
+
+  const allowedDownloadHosts = [
+    'mega.nz', 'mega.co.nz', 'drive.google.com', 'mediafire.com', '1fichier.com',
+    'qiwi.gg', 'gofile.io', 'pixeldrain.com', 'krakenfiles.com', 'datanodes.to',
+    'onedrive.live.com', 'sharemods.com', 'letsupload.io', 'send.cm',
+    'buzzheavier.com', 'multiup.org', 'bowfile.com', 'uploadhub.to',
+    'file-me.top', 'swiftuploads.com', 'up-4ever.net', 'zovo.ink', 'zovo2.top',
+    'rapidgator.net', 'turbobit.net', 'nitroflare.com', 'ddownload.com',
+    'workupload.com', 'fitgirl-repacks.site', 'dodi-repacks.site', 'steamrip.com',
+    'rutracker.org', 'katfile.com', 'rosefile.net', 'dropgalaxy.com',
+    'modsfire.com', 'anonfiles.com', 'bayfiles.com', 'uploadhaven.com',
+    'fuckingfast.co', 'clicknupload.click', 'clicknupload.net', 'hexupload.net',
+    'userscloud.com', 'filestore.me', 'vshare.eu', 'streamtape.com'
+  ];
+
+  // 1. 화면 전체를 덮는 투명 오버레이(클릭 가로채기 팝업 유도 레이어) 감지 및 즉각 제거
   function removeTransparentOverlays() {
     try {
-      const overlays = document.querySelectorAll('div[style*="position: fixed"]');
-      overlays.forEach(overlay => {
-        const style = window.getComputedStyle(overlay);
+      const candidates = document.querySelectorAll('div, a, section, span, iframe');
+      const winW = window.innerWidth || document.documentElement.clientWidth;
+      const winH = window.innerHeight || document.documentElement.clientHeight;
+      if (!winW || !winH) return;
+
+      candidates.forEach(el => {
+        // 이미 차단 처리된 요소는 건너뜀
+        if (el.dataset.overlayChecked === 'true') return;
+
+        const inlineStyle = el.getAttribute('style') || '';
+        // 명백한 투명 인라인 스타일
+        if (/opacity\s*:\s*0(\.0+1|\.00|\.0)?(?:\s*!important)?;/i.test(inlineStyle)) {
+          el.remove();
+          return;
+        }
+
+        const style = window.getComputedStyle(el);
+        const pos = style.getPropertyValue('position');
+        if (pos !== 'fixed' && pos !== 'absolute') return;
+
+        const zIndex = parseInt(style.getPropertyValue('z-index'), 10) || 0;
         const opacity = parseFloat(style.getPropertyValue('opacity')) || 1;
-        const zIndex = parseInt(style.getPropertyValue('z-index')) || 0;
-        const rect = overlay.getBoundingClientRect();
-        
-        if (rect.width > window.innerWidth * 0.8 && rect.height > window.innerHeight * 0.8) {
-          if (opacity < 0.3 || zIndex > 1000) {
-            console.log('투명 오버레이 제거:', overlay);
-            overlay.remove();
+        const rect = el.getBoundingClientRect();
+
+        // 화면의 60% 이상을 덮는 오버레이
+        const isCovering = rect.width >= winW * 0.6 && rect.height >= winH * 0.6;
+        if (isCovering && (opacity < 0.2 || zIndex >= 500)) {
+          // 콘텐츠(이미지, 텍스트)가 거의 없거나 클릭 가로채기용인 경우
+          const hasText = (el.innerText || '').trim().length > 30;
+          const hasInputs = el.querySelector('input, textarea, select');
+          if (!hasText && !hasInputs) {
+            console.log('[AdBlocker] 투명 오버레이 제거:', el);
+            el.dataset.overlayChecked = 'true';
+            el.style.setProperty('display', 'none', 'important');
+            el.style.setProperty('pointer-events', 'none', 'important');
+            el.remove();
           }
         }
       });
-      document.querySelectorAll('div[style*="opacity: 0.01"], div[style*="opacity:0.01"]').forEach(el => el.remove());
     } catch (error) {}
   }
-  
+
+  // 2. 가짜 다운로드 버튼 및 공통 악성 광고 차단 CSS 주입
   function addBlockingStyles() {
     const styleEl = document.createElement('style');
-    styleEl.id = 'ad-blocker-style';
+    styleEl.id = 'tm-ad-blocker-style';
     styleEl.textContent = `
-      div[style*="position: fixed"][style*="inset: 0"],
-      div[style*="position: fixed"][style*="top: 0"][style*="left: 0"][style*="width: 100%"],
+      div[style*="position: fixed"][style*="inset: 0"][style*="opacity: 0"],
+      div[style*="position: fixed"][style*="top: 0"][style*="left: 0"][style*="width: 100%"][style*="opacity: 0"],
       div[style*="position: fixed"][style*="opacity:0.01"],
+      div[style*="position: fixed"][style*="opacity: 0.01"],
       div[data-banner-id],
       #ad-gate,
+      .file-download-btnn,
+      .random,
       iframe[src*="waqool"],
       iframe[src*="rmhfrtnd"],
       iframe[src*="few-politics"] {
@@ -73,6 +121,37 @@
     else document.addEventListener('DOMContentLoaded', () => { if (document.head) document.head.appendChild(styleEl); });
   }
 
+  // 3. 캡처 단계에서 광고 링크 직접 클릭 방지 및 정상 링크 클릭 시 팝언더 전파 방어
+  function setupClickProtection() {
+    window.addEventListener('click', function(e) {
+      const link = e.target.closest ? e.target.closest('a') : null;
+      if (!link) return;
+
+      const href = (link.href || '').toLowerCase();
+      // A. 명백한 광고 도메인 링크 클릭 차단
+      const isAd = blockedDomains.some(domain => href.includes(domain));
+      if (isAd) {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        console.warn('[AdBlocker] 악성 광고 링크 클릭 차단:', link.href);
+        return;
+      }
+
+      // B. 정상 다운로드 링크나 내부 링크를 클릭한 경우:
+      // 버블링 단계로 전파되어 사이트에 심어진 팝언더 스크립트가 추가 광고 창을 띄우지 못하도록 보호
+      const isInternal = href.includes(hostname) || href.startsWith('/') || href.startsWith('#') || href.startsWith('javascript:');
+      const isDownloadHost = allowedDownloadHosts.some(domain => href.includes(domain)) || href.startsWith('magnet:');
+
+      if (isInternal || isDownloadHost) {
+        // 단, 링크 자체의 기본 브라우저 동작은 유지하면서 추가 광고 스크립트로의 버블링을 억제
+        // (이벤트 캡처 단계에서 플래그 설정)
+        link.dataset.trustedUserClick = 'true';
+      }
+    }, true);
+  }
+
+  // 4. 리디렉션 및 특정 사이트 전용 로직
   function preventRedirects() {
     const originalLocation = window.location;
     let lastLocation = window.location.href;
@@ -85,7 +164,7 @@
             const lowercaseUrl = value.toLowerCase();
             const isBlocked = blockedDomains.some(domain => lowercaseUrl.includes(domain));
             if (isBlocked) {
-              console.log('차단된 리디렉션:', value);
+              console.log('[AdBlocker] 차단된 리디렉션:', value);
               return;
             }
           }
@@ -101,61 +180,22 @@
       } catch (e) {}
     }
 
-    if (isMrJavSite || isSwiftUploadsSite || isGameRepackSite) {
-      const injectPopupBlocker = () => {
-        if (chrome.runtime && chrome.runtime.getURL) {
-          const script = document.createElement('script');
-          script.src = chrome.runtime.getURL('mrjavOverride.js');
-          (document.head || document.documentElement).appendChild(script);
-          script.onload = () => script.remove();
-        }
-      };
-      if (document.head || document.documentElement) injectPopupBlocker();
-      else document.addEventListener('DOMContentLoaded', injectPopupBlocker);
-    }
-
     if (isGameRepackSite) {
-      // 1. 가짜 다운로드 버튼 숨기기 (.file-download-btnn, .random)
-      const style = document.createElement('style');
-      style.textContent = `
-        .file-download-btnn,
-        .random {
-          display: none !important;
-          opacity: 0 !important;
-          pointer-events: none !important;
-          position: absolute !important;
-          z-index: -9999 !important;
-        }
-      `;
-      (document.head || document.documentElement).appendChild(style);
-
-      const allowedHosts = [
-        'mega.nz', 'drive.google.com', 'mediafire.com', '1fichier.com', 'qiwi.gg',
-        'gofile.io', 'pixeldrain.com', 'krakenfiles.com', 'datanodes.to',
-        'onedrive.live.com', 'sharemods.com', 'letsupload.io', 'send.cm',
-        'buzzheavier.com', 'multiup.org', 'bowfile.com', 'uploadhub.to',
-        'file-me.top', 'swiftuploads.com', 'up-4ever.net', 'zovo.ink', 'zovo2.top'
-      ];
-
-      // 2. 캡처 단계에서 모든 클릭/마우스 이벤트 가로채기 (광고 스크립트가 실행되기 전)
       const forceNavigate = function(e) {
         const link = e.target.closest('a');
         if (link) {
           const href = link.href || '';
           const isInternal = href.includes(hostname) || href.startsWith('/') || href.startsWith('#') || href === '';
-          const isAllowed = allowedHosts.some(domain => href.toLowerCase().includes(domain)) || href.startsWith('magnet:');
+          const isAllowed = allowedDownloadHosts.some(domain => href.toLowerCase().includes(domain)) || href.startsWith('magnet:');
           
           if (isInternal || isAllowed) {
-            // 이벤트 버블링 차단 (광고 스크립트가 인식하지 못하게 함)
             e.stopPropagation();
-            
-            // click 이벤트일 때만 강제 이동 처리 (중복 실행 방지)
             if (e.type === 'click') {
               e.preventDefault();
-              link.removeAttribute('target'); // 새 탭 속성 제거
-              console.log('MAIN world 강제 이동 처리 (광고 완벽 우회):', href);
+              link.removeAttribute('target');
+              console.log('[GameRepack] 안전 강제 이동:', href);
               if (href && href !== 'javascript:void(0)' && href !== '#') {
-                 window.location.href = href;
+                window.location.href = href;
               }
             }
           }
@@ -168,7 +208,6 @@
       window.addEventListener('pointerdown', forceNavigate, true);
       window.addEventListener('pointerup', forceNavigate, true);
 
-      // 가짜 버튼 지속적 제거
       setInterval(() => {
         try {
           document.querySelectorAll('.file-download-btnn, .random').forEach(el => {
@@ -184,7 +223,7 @@
           const t = e.target.target ? e.target.target.toLowerCase() : '';
           if (t && !['_self', '_top', '_parent'].includes(t)) {
             e.preventDefault();
-            console.log('폼 제출 팝언더 차단:', e.target.action);
+            console.log('[SwiftUploads] 폼 제출 팝언더 차단:', e.target.action);
             e.target.removeAttribute('target');
             if (!e.target.action.toLowerCase().includes(hostname)) e.preventDefault();
           }
@@ -203,12 +242,12 @@
             if (hasNewTabTarget || isExternalHref) {
               e.preventDefault();
               e.stopPropagation();
-              console.log('격리세계 외부/팝업 링크 클릭 차단:', href, t);
+              console.log('[SwiftUploads] 외부/팝업 링크 클릭 차단:', href, t);
               link.removeAttribute('target');
               if (isExternalHref) {
-                 link.href = 'javascript:void(0)';
+                link.href = 'javascript:void(0)';
               } else {
-                 if (href && href !== 'javascript:void(0)') window.location.href = href;
+                if (href && href !== 'javascript:void(0)') window.location.href = href;
               }
             }
           }
@@ -222,7 +261,7 @@
               const newUrl = window.location.href;
               const isBlocked = blockedDomains.some(domain => newUrl.toLowerCase().includes(domain));
               if (isBlocked) {
-                console.log('클릭 후 차단된 리디렉션 시도:', newUrl);
+                console.log('[Twidouga] 클릭 후 차단된 리디렉션 시도:', newUrl);
                 history.pushState(null, '', lastLocation);
               } else {
                 lastLocation = newUrl;
@@ -237,37 +276,34 @@
               const currentUrl = window.location.href;
               const isAdUrl = blockedDomains.some(domain => currentUrl.toLowerCase().includes(domain));
               if (isAdUrl || currentUrl !== lastLocation) {
-                console.log('동영상 클릭 후 리디렉션 차단:', currentUrl);
+                console.log('[Twidouga] 동영상 클릭 후 리디렉션 차단:', currentUrl);
                 history.pushState(null, '', lastLocation);
               }
             }, 100);
           }
         }, true);
+
+        const originalPushState = history.pushState;
+        const originalReplaceState = history.replaceState;
+        history.pushState = function(state, title, url) {
+          if (url && blockedDomains.some(domain => url.toLowerCase().includes(domain))) {
+            console.log('[Twidouga] pushState 리디렉션 차단:', url);
+            return;
+          }
+          return originalPushState.apply(this, arguments);
+        };
+        history.replaceState = function(state, title, url) {
+          if (url && blockedDomains.some(domain => url.toLowerCase().includes(domain))) {
+            console.log('[Twidouga] replaceState 리디렉션 차단:', url);
+            return;
+          }
+          return originalReplaceState.apply(this, arguments);
+        };
       }
-    }
-    
-    if (isTwidougaSite) {
-      const originalPushState = history.pushState;
-      const originalReplaceState = history.replaceState;
-      history.pushState = function(state, title, url) {
-        if (url && blockedDomains.some(domain => url.toLowerCase().includes(domain))) {
-          console.log('pushState 리디렉션 차단:', url);
-          return;
-        }
-        return originalPushState.apply(this, arguments);
-      };
-      history.replaceState = function(state, title, url) {
-        if (url && blockedDomains.some(domain => url.toLowerCase().includes(domain))) {
-          console.log('replaceState 리디렉션 차단:', url);
-          return;
-        }
-        return originalReplaceState.apply(this, arguments);
-      };
     }
 
     if (isSwiftUploadsSite) {
-      // 진짜 버튼(Free Download)을 찾아 강제로 활성화하고 가짜 버튼을 숨깁니다.
-      const forceButtonTimer = setInterval(() => {
+      setInterval(() => {
         try {
           const buttons = document.querySelectorAll('button');
           let fakeBtn = null;
@@ -280,30 +316,24 @@
           });
           
           if (fakeBtn && realBtn) {
-            // 진짜 버튼이 화면에 보이지 않는 상태라면 강제로 표시
             const realStyle = window.getComputedStyle(realBtn);
             if (realStyle.display === 'none' || realStyle.visibility === 'hidden' || realBtn.offsetHeight === 0) {
-              
-              // 가짜 버튼 완전히 숨기기
               fakeBtn.style.setProperty('display', 'none', 'important');
               if (fakeBtn.parentElement) fakeBtn.parentElement.style.setProperty('display', 'none', 'important');
               
-              // 진짜 버튼 강제 활성화
               realBtn.style.setProperty('display', 'block', 'important');
               realBtn.style.setProperty('visibility', 'visible', 'important');
               realBtn.style.setProperty('opacity', '1', 'important');
               realBtn.removeAttribute('disabled');
               
-              // 광고 스크립트의 전역 클릭 이벤트 버블링 차단
               if (realBtn.dataset.adShield !== 'true') {
                 realBtn.dataset.adShield = 'true';
                 realBtn.addEventListener('click', function(e) {
                   e.stopPropagation();
-                  console.log('진짜 다운로드 버튼 클릭: 광고 스크립트로의 이벤트 버블링 차단');
+                  console.log('[SwiftUploads] 진짜 다운로드 버튼 클릭');
                 });
               }
               
-              // 부모 요소 중 숨겨진 것이 있다면 전부 해제
               let parent = realBtn.parentElement;
               while (parent && parent.tagName !== 'BODY') {
                 if (window.getComputedStyle(parent).display === 'none' || parent.style.display === 'none') {
@@ -311,8 +341,6 @@
                 }
                 parent = parent.parentElement;
               }
-              
-              console.log('가짜 버튼을 진짜 다운로드 버튼으로 강제 교체 완료!');
             }
           }
         } catch(e) {}
@@ -323,7 +351,18 @@
   function init() {
     addBlockingStyles();
     removeTransparentOverlays();
+    setupClickProtection();
     preventRedirects();
+
+    // DOM 변화 감시로 동적 투명 오버레이 실시간 제거
+    const overlayObserver = new MutationObserver(() => {
+      removeTransparentOverlays();
+    });
+
+    if (document.documentElement) {
+      overlayObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
+
     setInterval(removeTransparentOverlays, 1000);
   }
   

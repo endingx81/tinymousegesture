@@ -42,7 +42,17 @@
         "few-politics.com",
         "waqool.com",
         "rmhfrtnd.com",
-        "wpadmngr.com"
+        "wpadmngr.com",
+        "sivycafybemude.com",
+        "pemsrv.com",
+        "magsrv.com",
+        "378ed00341.com",
+        "stripchat.com",
+        "stripchatgirls.com",
+        "stripchat.org",
+        "stripchat.net",
+        "trafficjunky.com",
+        "exoclick.com"
       ],
       "resourceTypes": ["main_frame", "sub_frame", "script", "xmlhttprequest"]
     }
@@ -74,6 +84,15 @@
     "condition": {
       "requestDomains": ["swiftuploads.com", "game-repack.site"],
       "resourceTypes": ["main_frame"]
+    }
+  },
+  {
+    "id": 6,
+    "priority": 1,
+    "action": { "type": "block" },
+    "condition": {
+      "urlFilter": "*twidouga.net/js/popunder-inject.js*",
+      "resourceTypes": ["script"]
     }
   }
 ]

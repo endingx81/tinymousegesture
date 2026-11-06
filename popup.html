@@ -105,6 +105,53 @@
       font-size: 14px;
       color: #333;
     }
+
+    .cleaner-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 10px;
+      border-radius: 4px;
+      background: #eef4ff;
+      border: 1px solid #d2e3fc;
+    }
+
+    .cleaner-info {
+      display: flex;
+      flex-direction: column;
+      margin-right: 8px;
+    }
+
+    .cleaner-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #1a73e8;
+    }
+
+    .cleaner-desc {
+      font-size: 11px;
+      color: #5f6368;
+      margin-top: 2px;
+      line-height: 1.3;
+    }
+
+    .open-cleaner-button {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      background: #1a73e8;
+      color: white;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      white-space: nowrap;
+      transition: background 0.2s;
+    }
+
+    .open-cleaner-button:hover {
+      background: #1557b0;
+    }
   </style>
 </head>
 <body>
@@ -143,6 +190,13 @@
       <input type="checkbox" id="dcRedirectToggle">
       <span class="slider"></span>
     </label>
+  </div>
+  <div class="cleaner-item">
+    <div class="cleaner-info">
+      <span class="cleaner-title" id="bookmarkCleanerTitle">즐겨찾기 검사 및 정리</span>
+      <span class="cleaner-desc" id="bookmarkCleanerDesc">죽은 사이트 및 차단/삭제된 계정 정리</span>
+    </div>
+    <button id="openBookmarkCleanerBtn" class="open-cleaner-button">열기</button>
   </div>
   <script src="popup.js" type="module"></script>
 </body>

@@ -5,8 +5,10 @@ class BackgroundManager {
   constructor() {
     this.tabUnblockState = new Map();
     this.currentState = {
-      isAdBlockerEnabled: false
+      isAdBlockerEnabled: true
     };
+    this.openerTabSpamTracker = new Map();
+    this.flaggedAdTabs = new Map();
     this.currentPrefix = '';
     console.log('BackgroundManager 생성자 실행, currentPrefix 초기화:', this.currentPrefix);
     this.setupListeners();
@@ -39,7 +41,7 @@ class BackgroundManager {
     chrome.storage.local.get(['searchPrefix', 'isAdBlockerEnabled']).then(data => {
       console.log('스토리지에서 설정 가져옴:', data);
       this.currentPrefix = data.searchPrefix || '';
-      this.currentState.isAdBlockerEnabled = data.isAdBlockerEnabled || false;
+      this.currentState.isAdBlockerEnabled = data.isAdBlockerEnabled !== false;
       console.log('currentPrefix 설정됨:', this.currentPrefix);
       this.updateContextMenu(); // 메뉴 생성 후 업데이트 호출
     });
@@ -189,12 +191,85 @@ class BackgroundManager {
   }
 
   setupTabListeners() {
+    const BLOCKED_AD_KEYWORDS = [
+      'stripchat', 'stripchatgirls', 'chaturbate', 'livejasmin', 'biotrck', 'trafficjunky',
+      'sivycafybemude', 'pemsrv', 'magsrv', '378ed00341',
+      'adskeeper', 'ad-maven', 'admaven', 'kilojaya', 'satisfiednews',
+      'gullible-thanks', 'tsyndicate', 'alfalfaemployeeresource', 'few-politics',
+      'waqool', 'rmhfrtnd', 'wpadmngr', 'mqy60aa7.shop', 'popads', 'popcash',
+      'propellerads', 'adsterra', 'exoclick', 'hilltopads', 'monetag', 'clickadu',
+      'yadro', 'adclick', 'vidoomy', 'clickaine', 'richpush', 'clickguard',
+      'zeroredirect', 'adrevenue', 'adsupply', 'adcolony', 'taboola', 'outbrain',
+      'bet365', '1xbet', 'casinogames'
+    ];
+
+    const isAdUrl = (url) => {
+      if (!url) return false;
+      const lower = url.toLowerCase();
+      return BLOCKED_AD_KEYWORDS.some(k => lower.includes(k));
+    };
+
     chrome.tabs.onActivated.addListener((activeInfo) => {
       this.updateIcon(this.getTabUnblockState(activeInfo.tabId));
     });
 
+    // 새 탭 생성 감시: 광고 및 중복 팝언더 탭 즉시 차단
+    chrome.tabs.onCreated.addListener((tab) => {
+      if (this.currentState.isAdBlockerEnabled === false) return;
+
+      const url = tab.pendingUrl || tab.url || '';
+      if (isAdUrl(url)) {
+        console.warn('[Background] 악성 광고 탭 생성 차단:', tab.id, url);
+        chrome.tabs.remove(tab.id).catch(() => {});
+        return;
+      }
+
+      if (tab.openerTabId) {
+        const now = Date.now();
+        const history = this.openerTabSpamTracker.get(tab.openerTabId) || [];
+        const recent = history.filter(item => now - item.time < 1200);
+        recent.push({ tabId: tab.id, time: now, url });
+        this.openerTabSpamTracker.set(tab.openerTabId, recent);
+
+        // 동일 오프너 탭에서 1.2초 내 2번째 이상의 탭이 생성된 경우 (다중 광고 탭 팝언더)
+        if (recent.length >= 2) {
+          console.warn('[Background] 중복 팝언더 탭 의심 플래그 설정:', tab.id, url);
+          this.flaggedAdTabs.set(tab.id, { openerTabId: tab.openerTabId, time: now });
+        }
+      }
+    });
+
+    // 탭 URL 변경 감시 (리디렉션 추적 차단)
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      if (this.currentState.isAdBlockerEnabled === false) return;
+
+      const url = changeInfo.url || tab.url || '';
+      if (isAdUrl(url)) {
+        console.warn('[Background] 리디렉션된 광고 탭 즉각 닫기:', tabId, url);
+        chrome.tabs.remove(tabId).catch(() => {});
+        this.flaggedAdTabs.delete(tabId);
+        return;
+      }
+
+      // 플래그된 중복 팝언더 탭이 광고성 외부 도메인으로 네비게이션 시 닫기
+      if (this.flaggedAdTabs.has(tabId) && changeInfo.url) {
+        const flagInfo = this.flaggedAdTabs.get(tabId);
+        if (Date.now() - flagInfo.time < 5000) {
+          if (isAdUrl(changeInfo.url)) {
+            console.warn('[Background] 팝언더 광고 탭 종료:', tabId, changeInfo.url);
+            chrome.tabs.remove(tabId).catch(() => {});
+            this.flaggedAdTabs.delete(tabId);
+          }
+        } else {
+          this.flaggedAdTabs.delete(tabId);
+        }
+      }
+    });
+
     chrome.tabs.onRemoved.addListener((tabId) => {
       this.tabUnblockState.delete(tabId);
+      this.openerTabSpamTracker.delete(tabId);
+      this.flaggedAdTabs.delete(tabId);
     });
   }
 
@@ -228,7 +303,7 @@ class BackgroundManager {
   async loadSettings() {
     try {
       const data = await chrome.storage.local.get(['isAdBlockerEnabled']);
-      this.currentState.isAdBlockerEnabled = data.isAdBlockerEnabled || false;
+      this.currentState.isAdBlockerEnabled = data.isAdBlockerEnabled !== false;
       console.log('설정 불러오기 완료:', this.currentState);
     } catch (error) {
       console.error('설정 불러오기 오류:', error);

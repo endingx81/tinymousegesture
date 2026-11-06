@@ -67,7 +67,7 @@ class PopupManager {
         isUnblocked: false,
         searchPrefix: '',
         youtubeSkipTime: 5,
-        isAdBlockerEnabled: false,
+        isAdBlockerEnabled: true,
         dcRedirectEnabled: true
       });
       this.setupEventListeners();
@@ -83,7 +83,10 @@ class PopupManager {
         'searchPrefixText': 'searchPrefixPlaceholder',
         'youtubeControlText': 'youtubeControlText',
         'adBlockerText': 'adBlockerText',
-        'dcRedirectText': 'dcRedirectText'
+        'dcRedirectText': 'dcRedirectText',
+        'bookmarkCleanerTitle': 'bookmarkCleanerTitle',
+        'bookmarkCleanerDesc': 'bookmarkCleanerDesc',
+        'openBookmarkCleanerBtn': 'bookmarkCleanerOpenBtn'
       };
 
       Object.entries(elements).forEach(([id, key]) => {
@@ -108,8 +111,8 @@ class PopupManager {
           this.lastSavedSkipTime = data.youtubeSkipTime || 5;
       }
       if (this.adBlockerToggle) {
-          this.adBlockerToggle.checked = data.isAdBlockerEnabled || false;
-          this.isAdBlockerEnabled = data.isAdBlockerEnabled || false;
+          this.adBlockerToggle.checked = data.isAdBlockerEnabled !== false;
+          this.isAdBlockerEnabled = data.isAdBlockerEnabled !== false;
       }
       if (this.dcRedirectToggle) {
           this.dcRedirectToggle.checked = data.dcRedirectEnabled !== false; // 기본값 true
@@ -150,6 +153,13 @@ class PopupManager {
     }
     if (this.dcRedirectToggle) {
         this.dcRedirectToggle.addEventListener('change', this.handleDCRedirectToggle.bind(this));
+    }
+    const openCleanerBtn = document.getElementById('openBookmarkCleanerBtn');
+    if (openCleanerBtn) {
+      openCleanerBtn.addEventListener('click', () => {
+        chrome.tabs.create({ url: chrome.runtime.getURL('bookmarkCleaner.html') });
+        window.close();
+      });
     }
   }
 
