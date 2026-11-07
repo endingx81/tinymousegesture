@@ -153,7 +153,16 @@
       if (!link) return;
 
       const href = (link.href || '').toLowerCase();
-      // A. 명백한 광고 도메인 링크 클릭 차단
+      const isInternal = href.includes(hostname) || href.startsWith('/') || href.startsWith('#') || href.startsWith('javascript:');
+      const isDownloadHost = allowedDownloadHosts.some(domain => href.includes(domain)) || href.startsWith('magnet:');
+
+      // A. 내부 링크나 정상 다운로드 링크(진짜 주소)는 무조건 안전하게 허용
+      if (isInternal || isDownloadHost) {
+        link.dataset.trustedUserClick = 'true';
+        return;
+      }
+
+      // B. 외부 링크 중 명백한 광고 도메인 링크 클릭 차단
       const isAd = blockedDomains.some(domain => href.includes(domain));
       if (isAd) {
         e.preventDefault();
@@ -161,17 +170,6 @@
         e.stopImmediatePropagation();
         console.warn('[AdBlocker] 악성 광고 링크 클릭 차단:', link.href);
         return;
-      }
-
-      // B. 정상 다운로드 링크나 내부 링크를 클릭한 경우:
-      // 버블링 단계로 전파되어 사이트에 심어진 팝언더 스크립트가 추가 광고 창을 띄우지 못하도록 보호
-      const isInternal = href.includes(hostname) || href.startsWith('/') || href.startsWith('#') || href.startsWith('javascript:');
-      const isDownloadHost = allowedDownloadHosts.some(domain => href.includes(domain)) || href.startsWith('magnet:');
-
-      if (isInternal || isDownloadHost) {
-        // 단, 링크 자체의 기본 브라우저 동작은 유지하면서 추가 광고 스크립트로의 버블링을 억제
-        // (이벤트 캡처 단계에서 플래그 설정)
-        link.dataset.trustedUserClick = 'true';
       }
     }, true);
   }

@@ -30,8 +30,8 @@
     return originalInsertBefore.apply(this, arguments);
   };
 
-  // 2. 차단할 악성 광고 / 팝업 / 팝언더 네트워크 및 키워드 목록
-  const blockedAdKeywords = [
+  // 2. 차단할 악성 광고 / 팝업 / 팝언더 네트워크 도메인 목록
+  const blockedAdDomains = [
     'stripchat', 'stripchatgirls', 'chaturbate', 'livejasmin', 'biotrck', 'trafficjunky',
     'sivycafybemude', 'pemsrv', 'magsrv', '378ed00341',
     'adskeeper', 'ad-maven', 'admaven', 'kilojaya', 'satisfiednews',
@@ -41,7 +41,7 @@
     'yadro', 'adclick', 'doubleclick', 'onclick', 'adservice', 'vidoomy',
     'clickaine', 'richpush', 'clickguard', 'zeroredirect', 'adrevenue',
     'adsupply', 'adcolony', 'taboola', 'outbrain', 'bet365', '1xbet',
-    'casinogames', 'porn', 'camgirl', 'fap', 'adultgames'
+    'casinogames'
   ];
 
   // 3. 신뢰할 수 있는 인증(OAuth) 및 결제, 공인 서비스 도메인 목록 (정상 팝업 허용)
@@ -99,11 +99,15 @@
     return host === currentHost || host.endsWith('.' + currentHost) || currentHost.endsWith('.' + host);
   }
 
-  // Helper: 차단할 광고 도메인/키워드 검사
+  // Helper: 차단할 광고 도메인 검사 (내부 링크는 절대 광고로 판단하지 않음)
   function isBlockedAdUrl(url) {
     if (!url) return false;
-    const str = url.toString().toLowerCase();
-    return blockedAdKeywords.some(keyword => str.includes(keyword));
+    // 동일 도메인의 진짜 내부 링크는 무조건 허용
+    if (isSameDomain(url)) return false;
+
+    const host = extractHostname(url.toString());
+    if (!host) return false;
+    return blockedAdDomains.some(ad => host === ad || host.includes(ad));
   }
 
   // Helper: 신뢰할 수 있는 인증/결제 서비스인지 검사
@@ -366,11 +370,14 @@
       }
       if (target && target.tagName === 'A') {
         const href = target.href || '';
+        // 현재 도메인의 내부 링크(진짜 주소)는 무조건 안전하게 허용
+        if (isSameDomain(href)) return;
+
         if (href && isBlockedAdUrl(href)) {
           e.preventDefault();
           e.stopPropagation();
           e.stopImmediatePropagation();
-          console.warn('[MAIN world 팝업 차단] 광고 링크 직접 클릭 차단:', href);
+          console.warn('[MAIN world 팝업 차단] 외부 광고 링크 직접 클릭 차단:', href);
         }
       }
     } catch (err) {}
