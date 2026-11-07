@@ -463,4 +463,15 @@
       configurable: true
     });
   } catch(e) {}
+
+  // 10. ExoClick AdProvider 및 Native Ads 위젯 프로바이더 무력화
+  try {
+    const fakeAdProvider = [];
+    fakeAdProvider.push = function() { return 0; };
+    Object.defineProperty(window, 'AdProvider', {
+      get: function() { return fakeAdProvider; },
+      set: function() {},
+      configurable: true
+    });
+  } catch(e) {}
 })();

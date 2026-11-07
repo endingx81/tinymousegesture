@@ -116,6 +116,29 @@
       .msg-ipp-image,
       [class*="exo-ipp"],
       [class*="msg-ipp"],
+      .msg-native-widget,
+      .exo-native-widget,
+      .msg-native-widget-outer-container,
+      .exo-native-widget-outer-container,
+      .msg-native-widget-item-container,
+      .exo-native-widget-item-container,
+      .msg-native-widget-item,
+      .exo-native-widget-item,
+      .msg-native-widget-item-image,
+      .exo-native-widget-item-image,
+      [class*="native-widget"],
+      [class*="exo-native"],
+      [class*="msg-native"],
+      div:has(> [class*="native-widget"]),
+      div:has(> [class*="exo-native"]),
+      div:has(> [class*="msg-native"]),
+      div:has([style*="bkcdn.net"]),
+      div:has([style*="pncloudfl.com"]),
+      [style*="bkcdn.net"],
+      [style*="pncloudfl.com"],
+      .adsbyexoclick,
+      [data-idzone],
+      [data-zoneid],
       img[src*="pncloudfl.com"],
       img[src*="bkcdn.net"],
       div:has(> .exo-ipp-image),
@@ -388,15 +411,23 @@
     }
   }
   
-  // 1.1 특정 악성 광고 위젯(In-Page Push, 푸시 알림 광고, 0lluihle 아이프레임 등) 능동적 제거
+  // 1.1 특정 악성 광고 위젯(Native Widget, In-Page Push, 푸시 알림 광고, 0lluihle 아이프레임 등) 능동적 제거
   function removeAdWidgets() {
     if (isSafeSite) return;
     try {
       const adElements = document.querySelectorAll(
         '.ts-im-ad-link, [class*="ts-im-"], .exo-ipp-image, .msg-ipp-image, [class*="exo-ipp"], [class*="msg-ipp"], ' +
-        'img[src*="pncloudfl.com"], img[src*="bkcdn.net"], iframe[src*="0lluihle"], iframe.na, .adblock-wall'
+        '.msg-native-widget, .exo-native-widget, [class*="native-widget"], [class*="exo-native"], [class*="msg-native"], ' +
+        'img[src*="pncloudfl.com"], img[src*="bkcdn.net"], [style*="bkcdn.net"], [style*="pncloudfl.com"], ' +
+        'iframe[src*="0lluihle"], iframe[src*="realsrv"], iframe.na, .adsbyexoclick, [data-idzone], [data-zoneid], .adblock-wall'
       );
       adElements.forEach(el => {
+        // 네이티브 위젯 및 이미지 요소 직접 은닉
+        el.style.setProperty('display', 'none', 'important');
+        el.style.setProperty('pointer-events', 'none', 'important');
+        el.style.setProperty('visibility', 'hidden', 'important');
+        el.style.setProperty('height', '0px', 'important');
+
         let parent = el.parentElement;
         let depth = 0;
         while (parent && parent !== document.body && parent !== document.documentElement && depth < 6) {
@@ -404,6 +435,11 @@
           const pPos = pStyle.getPropertyValue('position');
           const isAdBox = pPos === 'fixed' || pPos === 'absolute' || 
                           parent.classList.contains('ts-im-ad-link') || 
+                          parent.classList.contains('msg-native-widget') ||
+                          parent.classList.contains('exo-native-widget') ||
+                          parent.classList.contains('msg-native-widget-outer-container') ||
+                          parent.hasAttribute('data-idzone') ||
+                          parent.hasAttribute('data-zoneid') ||
                           (parent.innerText && (parent.innerText.includes('ARE YOU 18+') || parent.innerText.includes('FAKE PORN')));
           if (isAdBox) {
             parent.style.setProperty('display', 'none', 'important');
@@ -415,9 +451,6 @@
           depth++;
           parent = parent.parentElement;
         }
-        el.style.setProperty('display', 'none', 'important');
-        el.style.setProperty('pointer-events', 'none', 'important');
-        el.style.setProperty('visibility', 'hidden', 'important');
       });
     } catch(e) {}
   }
