@@ -39,8 +39,18 @@
     'userscloud.com', 'filestore.me', 'vshare.eu', 'streamtape.com'
   ];
 
-  // 1. 화면 전체를 덮는 투명 오버레이(클릭 가로채기 팝업 유도 레이어) 감지 및 즉각 제거
+  // 정상 서비스 사이트 목록 (React/Next.js 기반 모달 및 딤 레이어를 보호)
+  const isSafeSite = [
+    'coupang.com', 'naver.com', 'daum.net', 'google.', 'youtube.com',
+    'github.com', 'toss.im', 'kakao.com', 'netflix.com', 'instagram.com',
+    'twitter.com', 'x.com', 'facebook.com', 'amazon.'
+  ].some(safe => hostname.includes(safe));
+
+  // 1. 화면 전체를 덮는 투명 오버레이(클릭 가로채기 팝업 유도 레이어) 감지 및 무력화
   function removeTransparentOverlays() {
+    // 정상적인 쇼핑몰/포털 사이트에서는 React 가상 DOM 충돌 방지를 위해 범용 오버레이 스캔 제외
+    if (isSafeSite) return;
+
     try {
       const candidates = document.querySelectorAll('div, a, section, span, iframe');
       const winW = window.innerWidth || document.documentElement.clientWidth;
@@ -48,13 +58,20 @@
       if (!winW || !winH) return;
 
       candidates.forEach(el => {
-        // 이미 차단 처리된 요소는 건너뜀
         if (el.dataset.overlayChecked === 'true') return;
+
+        // 정상적인 모달, 드롭다운, 백드롭 UI 요소는 제외
+        const className = (el.className || '').toString().toLowerCase();
+        const idName = (el.id || '').toString().toLowerCase();
+        const isNormalUI = ['modal', 'backdrop', 'dim', 'dialog', 'layer', 'portal', 'tooltip', 'dropdown', 'search', 'menu'].some(keyword => className.includes(keyword) || idName.includes(keyword));
+        if (isNormalUI) return;
 
         const inlineStyle = el.getAttribute('style') || '';
         // 명백한 투명 인라인 스타일
         if (/opacity\s*:\s*0(\.0+1|\.00|\.0)?(?:\s*!important)?;/i.test(inlineStyle)) {
-          el.remove();
+          el.dataset.overlayChecked = 'true';
+          el.style.setProperty('display', 'none', 'important');
+          el.style.setProperty('pointer-events', 'none', 'important');
           return;
         }
 
@@ -73,11 +90,13 @@
           const hasText = (el.innerText || '').trim().length > 30;
           const hasInputs = el.querySelector('input, textarea, select');
           if (!hasText && !hasInputs) {
-            console.log('[AdBlocker] 투명 오버레이 제거:', el);
+            console.log('[AdBlocker] 투명 오버레이 무력화 (React 안전 모드):', el);
             el.dataset.overlayChecked = 'true';
+            // React의 removeChild 충돌 방지를 위해 el.remove() 대신 스타일만 무력화
             el.style.setProperty('display', 'none', 'important');
             el.style.setProperty('pointer-events', 'none', 'important');
-            el.remove();
+            el.style.setProperty('visibility', 'hidden', 'important');
+            el.style.setProperty('opacity', '0', 'important');
           }
         }
       });
@@ -86,14 +105,13 @@
 
   // 2. 가짜 다운로드 버튼 및 공통 악성 광고 차단 CSS 주입
   function addBlockingStyles() {
+    // 정상적인 쇼핑몰/포털/검색엔진 사이트에서는 스타일 오염 방지
+    if (isSafeSite) return;
+
     const styleEl = document.createElement('style');
     styleEl.id = 'tm-ad-blocker-style';
-    styleEl.textContent = `
-      div[style*="position: fixed"][style*="inset: 0"][style*="opacity: 0"],
-      div[style*="position: fixed"][style*="top: 0"][style*="left: 0"][style*="width: 100%"][style*="opacity: 0"],
-      div[style*="position: fixed"][style*="opacity:0.01"],
-      div[style*="position: fixed"][style*="opacity: 0.01"],
-      div[data-banner-id],
+    
+    let css = `
       #ad-gate,
       .file-download-btnn,
       .random,
@@ -106,16 +124,23 @@
         pointer-events: none !important;
         z-index: -9999 !important;
       }
-      
-      #cover, #display, .gallery, .content, #image-container, #content-container,
-      .cover, .image, .image-container, .thumbnail-container,
-      img[src*="hitomi"], img[src*="image"], img[data-src] {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-        pointer-events: auto !important;
-      }
     `;
+
+    // hitomi.la 전용 스타일 (일반 사이트의 .content, .image 등을 오염시키지 않도록 분리)
+    if (isHitomiSite) {
+      css += `
+        #cover, #display, .gallery, .content, #image-container, #content-container,
+        .cover, .image, .image-container, .thumbnail-container,
+        img[src*="hitomi"], img[src*="image"], img[data-src] {
+          display: block !important;
+          visibility: visible !important;
+          opacity: 1 !important;
+          pointer-events: auto !important;
+        }
+      `;
+    }
+
+    styleEl.textContent = css;
     if (document.head) document.head.appendChild(styleEl);
     else if (document.documentElement) document.documentElement.appendChild(styleEl);
     else document.addEventListener('DOMContentLoaded', () => { if (document.head) document.head.appendChild(styleEl); });
@@ -153,25 +178,7 @@
 
   // 4. 리디렉션 및 특정 사이트 전용 로직
   function preventRedirects() {
-    const originalLocation = window.location;
     let lastLocation = window.location.href;
-    
-    try {
-      Object.defineProperty(window, 'location', {
-        get: function() { return originalLocation; },
-        set: function(value) {
-          if (typeof value === 'string') {
-            const lowercaseUrl = value.toLowerCase();
-            const isBlocked = blockedDomains.some(domain => lowercaseUrl.includes(domain));
-            if (isBlocked) {
-              console.log('[AdBlocker] 차단된 리디렉션:', value);
-              return;
-            }
-          }
-          originalLocation.href = value;
-        }
-      });
-    } catch (e) {}
     
     if (isMrJavSite) {
       try {
