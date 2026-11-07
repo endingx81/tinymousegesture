@@ -52,9 +52,17 @@
         "stripchat.org",
         "stripchat.net",
         "trafficjunky.com",
-        "exoclick.com"
+        "exoclick.com",
+        "0lluihle.xyz",
+        "realsrv.com",
+        "bkcdn.net",
+        "pncloudfl.com",
+        "labadena.com",
+        "tapioni.com",
+        "affectionatestorage.com",
+        "runative-syndicate.com"
       ],
-      "resourceTypes": ["main_frame", "sub_frame", "script", "xmlhttprequest"]
+      "resourceTypes": ["main_frame", "sub_frame", "script", "xmlhttprequest", "image", "media"]
     }
   },
   {

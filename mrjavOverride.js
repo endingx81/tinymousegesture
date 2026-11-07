@@ -41,7 +41,8 @@
     'yadro', 'adclick', 'doubleclick', 'onclick', 'adservice', 'vidoomy',
     'clickaine', 'richpush', 'clickguard', 'zeroredirect', 'adrevenue',
     'adsupply', 'adcolony', 'taboola', 'outbrain', 'bet365', '1xbet',
-    'casinogames'
+    'casinogames', '0lluihle', 'realsrv', 'bkcdn', 'pncloudfl', 'labadena',
+    'tapioni', 'affectionatestorage', 'runative-syndicate'
   ];
 
   // 3. 신뢰할 수 있는 인증(OAuth) 및 결제, 공인 서비스 도메인 목록 (정상 팝업 허용)
@@ -386,4 +387,80 @@
   document.addEventListener('click', blockAdClickCapture, true);
   document.addEventListener('mousedown', blockAdClickCapture, true);
   document.addEventListener('pointerdown', blockAdClickCapture, true);
+
+  // 6. 안티 디버깅 / 개발자 도구 감지(Function('debugger')) 무력화
+  // 개발자 도구가 열려 있어도 debugger 타이머에 걸리지 않도록 방어
+  try {
+    const OriginalFunction = window.Function;
+    window.Function = function(...args) {
+      if (args.length > 0 && typeof args[args.length - 1] === 'string') {
+        const code = args[args.length - 1];
+        if (code.includes('debugger')) {
+          return function() {};
+        }
+      }
+      return OriginalFunction.apply(this, args);
+    };
+    window.Function.prototype = OriginalFunction.prototype;
+  } catch(e) {}
+
+  // 7. 동영상 플레이어의 개발자 도구 차단 및 팝업/애드블록 속성 가로채기 (f4stream, f4scdn 등)
+  try {
+    const originalGetAttribute = Element.prototype.getAttribute;
+    Element.prototype.getAttribute = function(name) {
+      if (name === 'data-protect-devtools') return '0';
+      if (name === 'data-block-adblock') return '0';
+      if (name === 'data-ads') {
+        const val = originalGetAttribute.apply(this, arguments);
+        if (val) {
+          try {
+            const ads = JSON.parse(val);
+            ads.urls = [];
+            ads.own = [];
+            ads.push = '';
+            ads.pauseAd = '';
+            if (ads.vast) {
+              ads.vast.tag = '';
+              ads.vast.preroll = false;
+              ads.vast.midroll = 0;
+              ads.vast.postroll = false;
+            }
+            return JSON.stringify(ads);
+          } catch(e) {
+            return '{"urls":[],"own":[],"first":0,"push":"","pauseAd":""}';
+          }
+        }
+      }
+      return originalGetAttribute.apply(this, arguments);
+    };
+  } catch(e) {}
+
+  // 8. 애드블록 탐지(adsbygoogle probe fetch) 응답 위조 (가짜 200 OK 반환)
+  try {
+    const origFetch = window.fetch;
+    if (origFetch) {
+      window.fetch = function(input, init) {
+        const url = (typeof input === 'string') ? input : (input && input.url ? input.url : '');
+        if (url.includes('pagead2.googlesyndication.com') || url.includes('adsbygoogle')) {
+          return Promise.resolve(new Response('', { status: 200 }));
+        }
+        return origFetch.apply(this, arguments);
+      };
+    }
+  } catch(e) {}
+
+  // 9. sextb.net 무료 재생 횟수 제한(adblock wall) 무력화 (항상 정상 상태 반환)
+  try {
+    const fakeSextbAdblock = function(cb) {
+      if (typeof cb === 'function') setTimeout(() => cb(false), 0);
+    };
+    fakeSextbAdblock.recheck = function(cb) {
+      if (typeof cb === 'function') setTimeout(() => cb(false), 0);
+    };
+    Object.defineProperty(window, 'sextbAdblock', {
+      get: function() { return fakeSextbAdblock; },
+      set: function() {},
+      configurable: true
+    });
+  } catch(e) {}
 })();

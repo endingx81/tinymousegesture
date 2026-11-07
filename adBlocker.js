@@ -22,7 +22,8 @@
     'propellerads', 'adsterra', 'exoclick', 'hilltopads', 'monetag', 'clickadu',
     'yadro', 'adclick', 'doubleclick', 'onclick', 'vidoomy', 'clickaine',
     'richpush', 'clickguard', 'zeroredirect', 'adrevenue', 'adsupply',
-    'adcolony', 'taboola', 'outbrain', 'bet365', '1xbet'
+    'adcolony', 'taboola', 'outbrain', 'bet365', '1xbet',
+    '0lluihle', 'realsrv', 'bkcdn', 'pncloudfl', 'labadena', 'tapioni', 'affectionatestorage', 'runative-syndicate'
   ];
 
   const allowedDownloadHosts = [
@@ -109,6 +110,24 @@
       .interstitial-overlay,
       .file-download-btnn,
       .random,
+      .ts-im-ad-link,
+      [class*="ts-im-"],
+      .exo-ipp-image,
+      .msg-ipp-image,
+      [class*="exo-ipp"],
+      [class*="msg-ipp"],
+      img[src*="pncloudfl.com"],
+      img[src*="bkcdn.net"],
+      div:has(> .exo-ipp-image),
+      div:has(> .msg-ipp-image),
+      div:has(> [class*="exo-ipp"]),
+      div:has(> [class*="msg-ipp"]),
+      div:has(img[src*="pncloudfl.com"]),
+      div:has(img[src*="bkcdn.net"]),
+      iframe[src*="0lluihle"],
+      iframe[src*="realsrv"],
+      iframe.na,
+      .adblock-wall,
       iframe[src*="waqool"],
       iframe[src*="rmhfrtnd"],
       iframe[src*="few-politics"] {
@@ -116,6 +135,9 @@
         visibility: hidden !important;
         opacity: 0 !important;
         pointer-events: none !important;
+        height: 0 !important;
+        max-height: 0 !important;
+        overflow: hidden !important;
         z-index: -9999 !important;
       }
     `;
@@ -366,15 +388,51 @@
     }
   }
   
+  // 1.1 특정 악성 광고 위젯(In-Page Push, 푸시 알림 광고, 0lluihle 아이프레임 등) 능동적 제거
+  function removeAdWidgets() {
+    if (isSafeSite) return;
+    try {
+      const adElements = document.querySelectorAll(
+        '.ts-im-ad-link, [class*="ts-im-"], .exo-ipp-image, .msg-ipp-image, [class*="exo-ipp"], [class*="msg-ipp"], ' +
+        'img[src*="pncloudfl.com"], img[src*="bkcdn.net"], iframe[src*="0lluihle"], iframe.na, .adblock-wall'
+      );
+      adElements.forEach(el => {
+        let parent = el.parentElement;
+        let depth = 0;
+        while (parent && parent !== document.body && parent !== document.documentElement && depth < 6) {
+          const pStyle = window.getComputedStyle(parent);
+          const pPos = pStyle.getPropertyValue('position');
+          const isAdBox = pPos === 'fixed' || pPos === 'absolute' || 
+                          parent.classList.contains('ts-im-ad-link') || 
+                          (parent.innerText && (parent.innerText.includes('ARE YOU 18+') || parent.innerText.includes('FAKE PORN')));
+          if (isAdBox) {
+            parent.style.setProperty('display', 'none', 'important');
+            parent.style.setProperty('pointer-events', 'none', 'important');
+            parent.style.setProperty('visibility', 'hidden', 'important');
+            parent.style.setProperty('height', '0px', 'important');
+            break;
+          }
+          depth++;
+          parent = parent.parentElement;
+        }
+        el.style.setProperty('display', 'none', 'important');
+        el.style.setProperty('pointer-events', 'none', 'important');
+        el.style.setProperty('visibility', 'hidden', 'important');
+      });
+    } catch(e) {}
+  }
+
   function init() {
     addBlockingStyles();
     removeTransparentOverlays();
+    removeAdWidgets();
     setupClickProtection();
     preventRedirects();
 
-    // DOM 변화 감시로 동적 투명 오버레이 실시간 제거
+    // DOM 변화 감시로 동적 투명 오버레이 및 광고 위젯 실시간 제거
     const overlayObserver = new MutationObserver(() => {
       removeTransparentOverlays();
+      removeAdWidgets();
     });
 
     if (document.documentElement) {
@@ -382,6 +440,7 @@
     }
 
     setInterval(removeTransparentOverlays, 1000);
+    setInterval(removeAdWidgets, 800);
   }
   
   init();
