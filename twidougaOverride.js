@@ -79,51 +79,7 @@
     return el;
   };
 
-  // 5. 동영상 클릭 시 스트립챗 팝언더 전파 원천 차단 (최우선 캡처)
-  const handleVideoClick = function(e) {
-    let target = e.target;
-    let videoLink = null;
-
-    while (target && target !== document.body && target !== document.documentElement) {
-      if (target.tagName === 'A') {
-        const href = target.getAttribute('href') || target.href || '';
-        if (href.includes('video.php') || target.classList.contains('rank-thumb-link')) {
-          videoLink = target;
-          break;
-        }
-      }
-      target = target.parentNode;
-    }
-
-    if (videoLink) {
-      // 사이트의 전역 팝언더/광고 리스너로 이벤트가 넘어가지 않도록 즉시 중단
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-
-      if (e.type === 'click') {
-        e.preventDefault();
-        const safeUrl = videoLink.href || videoLink.getAttribute('href');
-        console.log('[twidouga] 동영상 안전 클릭 (스트립챗 팝언더 완벽 차단):', safeUrl);
-        if (safeUrl) {
-          // 원래 의도대로 새 창/탭 또는 현재 창으로 깨끗하게 열기
-          const isBlank = (videoLink.target || '').toLowerCase() === '_blank';
-          if (isBlank) {
-            window.open(safeUrl, '_blank', 'noopener,noreferrer');
-          } else {
-            window.location.href = safeUrl;
-          }
-        }
-      }
-    }
-  };
-
-  // 캡처 단계에서 최우선으로 등록
-  window.addEventListener('click', handleVideoClick, true);
-  window.addEventListener('mousedown', handleVideoClick, true);
-  window.addEventListener('pointerdown', handleVideoClick, true);
-  window.addEventListener('mouseup', handleVideoClick, true);
-
-  // 6. 현재 페이지가 스트립챗 등 광고 도메인으로 무단 리디렉트되는 행위 차단
+  // 5. 동영상 링크 클릭 시 스트립챗 등 광고 전파 방어 및 안전한 네이티브 탐색 보장
   const isAdUrl = function(url) {
     if (!url) return false;
     const lower = url.toString().toLowerCase();
@@ -132,6 +88,45 @@
            lower.includes('378ed00341');
   };
 
+  const handleVideoClick = function(e) {
+    let target = e.target;
+    let videoLink = null;
+
+    while (target && target !== document.body && target !== document.documentElement) {
+      if (target.tagName === 'A') {
+        const href = target.getAttribute('href') || target.href || '';
+        if (href.includes('video.php') || target.classList.contains('rank-thumb-link') || target.classList.contains('grid-item-link')) {
+          videoLink = target;
+          break;
+        }
+      }
+      target = target.parentNode;
+    }
+
+    if (videoLink) {
+      const safeUrl = videoLink.getAttribute('href') || videoLink.href || '';
+      if (safeUrl && !isAdUrl(safeUrl)) {
+        // 새 창/새 탭에서 열리도록 보장
+        if (!videoLink.getAttribute('target')) {
+          videoLink.setAttribute('target', '_blank');
+        }
+        videoLink.setAttribute('rel', 'noopener');
+
+        // 상위 window/document의 팝업 광고 리스너로 이벤트가 전파되지 않도록 차단
+        e.stopPropagation();
+
+        // [중요] e.preventDefault()를 호출하지 않아 브라우저 고유의 <a> 태그 네이티브 탐색은 100% 정상 작동!
+        // 크롬 자체 팝업 차단기에 걸리지 않고 안정적으로 새 탭이 열립니다.
+      }
+    }
+  };
+
+  // 버블링 단계(false)에서 상위로의 광고 리스너 전파 방지
+  window.addEventListener('click', handleVideoClick, false);
+  window.addEventListener('mousedown', handleVideoClick, false);
+  window.addEventListener('mouseup', handleVideoClick, false);
+
+  // 6. 현재 페이지가 스트립챗 등 광고 도메인으로 무단 리디렉트되는 행위 차단
   const originalLocation = window.location;
   try {
     const locDesc = Object.getOwnPropertyDescriptor(window, 'location');
@@ -148,6 +143,26 @@
       });
     }
   } catch (e) {}
+
+  // 7. 더 불러오기(load-more-wrap) 및 adGate 자동 해제 보조
+  // 스크롤 시 '더 불러오기' 버튼이 활성화되거나 ad-gate 오버레이가 생기면 즉시 통과/해제
+  setInterval(function() {
+    try {
+      const wrap = document.getElementById('load-more-wrap');
+      const btn = document.getElementById('load-more-btn');
+      if (wrap && btn && !wrap.classList.contains('hidden') && wrap.style.display !== 'none') {
+        btn.click();
+      }
+      const adGate = document.getElementById('ad-gate');
+      if (adGate && adGate.classList.contains('is-open')) {
+        adGate.classList.remove('is-open');
+      }
+      const customInterstitial = document.getElementById('custom-interstitial');
+      if (customInterstitial && customInterstitial.classList.contains('is-open')) {
+        customInterstitial.classList.remove('is-open');
+      }
+    } catch (e) {}
+  }, 250);
 
   console.log('[twidouga] twidougaOverride 로드 완료 (스트립챗 방어 활성화)');
 })();

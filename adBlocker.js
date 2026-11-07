@@ -60,20 +60,11 @@
       candidates.forEach(el => {
         if (el.dataset.overlayChecked === 'true') return;
 
-        // 정상적인 모달, 드롭다운, 백드롭 UI 요소는 제외
+        // 정상적인 모달, 드롭다운, 백드롭 UI 요소 및 그리드 아이템 제외
         const className = (el.className || '').toString().toLowerCase();
         const idName = (el.id || '').toString().toLowerCase();
-        const isNormalUI = ['modal', 'backdrop', 'dim', 'dialog', 'layer', 'portal', 'tooltip', 'dropdown', 'search', 'menu'].some(keyword => className.includes(keyword) || idName.includes(keyword));
+        const isNormalUI = ['modal', 'backdrop', 'dim', 'dialog', 'layer', 'portal', 'tooltip', 'dropdown', 'search', 'menu', 'grid-item', 'thumb', 'card'].some(keyword => className.includes(keyword) || idName.includes(keyword));
         if (isNormalUI) return;
-
-        const inlineStyle = el.getAttribute('style') || '';
-        // 명백한 투명 인라인 스타일
-        if (/opacity\s*:\s*0(\.0+1|\.00|\.0)?(?:\s*!important)?;/i.test(inlineStyle)) {
-          el.dataset.overlayChecked = 'true';
-          el.style.setProperty('display', 'none', 'important');
-          el.style.setProperty('pointer-events', 'none', 'important');
-          return;
-        }
 
         const style = window.getComputedStyle(el);
         const pos = style.getPropertyValue('position');
@@ -113,6 +104,9 @@
     
     let css = `
       #ad-gate,
+      .ad-gate-overlay,
+      #custom-interstitial,
+      .interstitial-overlay,
       .file-download-btnn,
       .random,
       iframe[src*="waqool"],
@@ -125,6 +119,25 @@
         z-index: -9999 !important;
       }
     `;
+
+    // twidouga.net 전용 스타일 (그리드 카드 클릭 보장 및 상위 광고 차단)
+    if (isTwidougaSite) {
+      css += `
+        .grid-item {
+          pointer-events: auto !important;
+          z-index: 10 !important;
+        }
+        .grid-item a.grid-item-link,
+        .grid-item a.grid-item-link * {
+          pointer-events: auto !important;
+          cursor: pointer !important;
+        }
+        .grid-item img.thumb {
+          pointer-events: auto !important;
+          cursor: pointer !important;
+        }
+      `;
+    }
 
     // hitomi.la 전용 스타일 (일반 사이트의 .content, .image 등을 오염시키지 않도록 분리)
     if (isHitomiSite) {
