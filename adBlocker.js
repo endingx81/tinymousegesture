@@ -23,7 +23,8 @@
     'yadro', 'adclick', 'doubleclick', 'onclick', 'vidoomy', 'clickaine',
     'richpush', 'clickguard', 'zeroredirect', 'adrevenue', 'adsupply',
     'adcolony', 'taboola', 'outbrain', 'bet365', '1xbet',
-    '0lluihle', 'realsrv', 'bkcdn', 'pncloudfl', 'labadena', 'tapioni', 'affectionatestorage', 'runative-syndicate'
+    '0lluihle', 'realsrv', 'bkcdn', 'pncloudfl', 'labadena', 'tapioni', 'affectionatestorage', 'runative-syndicate',
+    'adspyglass', 'sh-cdn', 'antiadxxxspy', '0i0i0i0'
   ];
 
   const allowedDownloadHosts = [
@@ -164,6 +165,26 @@
       .adsbyexoclick,
       [data-idzone],
       [data-zoneid],
+      [data-asg-ins],
+      [data-asg],
+      [data-tag="asg"],
+      [class*="asgvideo"],
+      [class*="asgvjs"],
+      .asg-ad-container,
+      .asg-container,
+      .asg-tag,
+      .asgvjs-ad-playing,
+      .asg-ad-label,
+      .asg-badge,
+      a[href*="adspyglass"],
+      iframe[src*="adspyglass"],
+      iframe[src*="sh-cdn"],
+      div:has(> a[href*="adspyglass"]),
+      div:has(> [data-asg-ins]),
+      div:has(> [data-asg]),
+      div:has(> [data-tag="asg"]),
+      div:has(> [class*="asg-"]),
+      div:has(a[href*="adspyglass"]),
       img[src*="pncloudfl.com"],
       img[src*="bkcdn.net"],
       div:has(> .exo-ipp-image),
@@ -444,7 +465,8 @@
         '.ts-im-ad-link, [class*="ts-im-"], .exo-ipp-image, .msg-ipp-image, [class*="exo-ipp"], [class*="msg-ipp"], ' +
         '.msg-native-widget, .exo-native-widget, [class*="native-widget"], [class*="exo-native"], [class*="msg-native"], ' +
         'img[src*="pncloudfl.com"], img[src*="bkcdn.net"], [style*="bkcdn.net"], [style*="pncloudfl.com"], ' +
-        'iframe[src*="0lluihle"], iframe[src*="realsrv"], iframe.na, .adsbyexoclick, [data-idzone], [data-zoneid], .adblock-wall'
+        'iframe[src*="0lluihle"], iframe[src*="realsrv"], iframe.na, .adsbyexoclick, [data-idzone], [data-zoneid], .adblock-wall, ' +
+        '[data-asg-ins], [data-asg], [data-tag="asg"], [class*="asgvideo"], [class*="asgvjs"], .asg-ad-container, a[href*="adspyglass"], iframe[src*="adspyglass"], iframe[src*="sh-cdn"]'
       );
       adElements.forEach(el => {
         // 네이티브 위젯 및 이미지 요소 직접 은닉
@@ -458,6 +480,7 @@
         while (parent && parent !== document.body && parent !== document.documentElement && depth < 6) {
           const pStyle = window.getComputedStyle(parent);
           const pPos = pStyle.getPropertyValue('position');
+          const pText = (parent.innerText || '').toLowerCase();
           const isAdBox = pPos === 'fixed' || pPos === 'absolute' || 
                           parent.classList.contains('ts-im-ad-link') || 
                           parent.classList.contains('msg-native-widget') ||
@@ -465,7 +488,13 @@
                           parent.classList.contains('msg-native-widget-outer-container') ||
                           parent.hasAttribute('data-idzone') ||
                           parent.hasAttribute('data-zoneid') ||
-                          (parent.innerText && (parent.innerText.includes('ARE YOU 18+') || parent.innerText.includes('FAKE PORN')));
+                          parent.hasAttribute('data-asg-ins') ||
+                          parent.hasAttribute('data-asg') ||
+                          parent.getAttribute('data-tag') === 'asg' ||
+                          parent.querySelector('a[href*="adspyglass"]') ||
+                          pText.includes('adspyglass') ||
+                          pText.includes('are you 18+') || 
+                          pText.includes('fake porn');
           if (isAdBox) {
             parent.style.setProperty('display', 'none', 'important');
             parent.style.setProperty('pointer-events', 'none', 'important');

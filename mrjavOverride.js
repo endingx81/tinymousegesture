@@ -42,7 +42,8 @@
     'clickaine', 'richpush', 'clickguard', 'zeroredirect', 'adrevenue',
     'adsupply', 'adcolony', 'taboola', 'outbrain', 'bet365', '1xbet',
     'casinogames', '0lluihle', 'realsrv', 'bkcdn', 'pncloudfl', 'labadena',
-    'tapioni', 'affectionatestorage', 'runative-syndicate'
+    'tapioni', 'affectionatestorage', 'runative-syndicate',
+    'adspyglass', 'sh-cdn', 'antiadxxxspy', '0i0i0i0'
   ];
 
   // 3. 신뢰할 수 있는 인증(OAuth) 및 결제, 공인 서비스 도메인 목록 (정상 팝업 허용)
@@ -404,12 +405,18 @@
     window.Function.prototype = OriginalFunction.prototype;
   } catch(e) {}
 
-  // 7. 동영상 플레이어의 개발자 도구 차단 및 팝업/애드블록 속성 가로채기 (f4stream, f4scdn 등)
+  // 7. 동영상 플레이어의 개발자 도구 차단 및 팝업/애드블록 속성 가로채기 (f4stream, f4scdn, AdSpyglass 등)
   try {
     const originalGetAttribute = Element.prototype.getAttribute;
     Element.prototype.getAttribute = function(name) {
       if (name === 'data-protect-devtools') return '0';
       if (name === 'data-block-adblock') return '0';
+      if (name === 'data-asg-ins' || name === 'data-asg') return null;
+      if (name === 'data-tag') {
+        const val = originalGetAttribute.apply(this, arguments);
+        if (val === 'asg') return '';
+        return val;
+      }
       if (name === 'data-ads') {
         const val = originalGetAttribute.apply(this, arguments);
         if (val) {
@@ -432,6 +439,12 @@
         }
       }
       return originalGetAttribute.apply(this, arguments);
+    };
+
+    const originalHasAttribute = Element.prototype.hasAttribute;
+    Element.prototype.hasAttribute = function(name) {
+      if (name === 'data-asg-ins' || name === 'data-asg') return false;
+      return originalHasAttribute.apply(this, arguments);
     };
   } catch(e) {}
 
@@ -474,4 +487,121 @@
       configurable: true
     });
   } catch(e) {}
+
+  // 11. AdSpyglass 전역 객체 및 초기화 차단
+  try {
+    const makeRecursiveProxy = function() {
+      const p = new Proxy(function() { return p; }, {
+        get: function() { return p; },
+        apply: function() { return p; }
+      });
+      return p;
+    };
+    const fakeAsg = makeRecursiveProxy();
+
+    Object.defineProperty(window, '__initAsg', {
+      get: function() { return fakeAsg; },
+      set: function() {},
+      configurable: true
+    });
+    Object.defineProperty(window, 'asg', {
+      get: function() { return fakeAsg; },
+      set: function() {},
+      configurable: true
+    });
+    Object.defineProperty(window, 'asg_popunder', {
+      get: function() { return fakeAsg; },
+      set: function() {},
+      configurable: true
+    });
+    Object.defineProperty(window, 'asg_preroll', {
+      get: function() { return fakeAsg; },
+      set: function() {},
+      configurable: true
+    });
+  } catch(e) {}
+
+  // 12. JW Player 및 Video.js VAST / Pre-roll 광고 주입 차단 (SPA 정상 사이트는 제외)
+  if (!isSafeSite) {
+    try {
+      let realJwplayer = window.jwplayer;
+      const wrapJwplayer = function(target) {
+        if (typeof target !== 'function') return target;
+        return new Proxy(target, {
+          apply(fn, thisArg, args) {
+            const inst = Reflect.apply(fn, thisArg, args);
+            if (inst && typeof inst.setup === 'function' && !inst.__setupHooked) {
+              inst.__setupHooked = true;
+              const origSetup = inst.setup;
+              inst.setup = function(options) {
+                if (options && typeof options === 'object') {
+                  if (options.advertising) {
+                    console.log('[MAIN world] JW Player advertising 옵션 무력화');
+                    delete options.advertising;
+                  }
+                  if (options.adschedule) delete options.adschedule;
+                  if (options.adclient) delete options.adclient;
+                  if (options.admessage) delete options.admessage;
+                }
+                return origSetup.apply(this, arguments);
+              };
+            }
+            return inst;
+          }
+        });
+      };
+
+      if (realJwplayer) {
+        window.jwplayer = wrapJwplayer(realJwplayer);
+      }
+      Object.defineProperty(window, 'jwplayer', {
+        get: function() { return realJwplayer; },
+        set: function(val) {
+          realJwplayer = wrapJwplayer(val);
+        },
+        configurable: true,
+        enumerable: true
+      });
+    } catch(e) {}
+
+    try {
+      let realVideojs = window.videojs;
+      const wrapVideojs = function(target) {
+        if (typeof target !== 'function') return target;
+        return new Proxy(target, {
+          apply(fn, thisArg, args) {
+            if (args[1] && typeof args[1] === 'object') {
+              const opts = args[1];
+              if (opts.plugins) {
+                delete opts.plugins.vast;
+                delete opts.plugins.ads;
+                delete opts.plugins.ima;
+                delete opts.plugins.asg;
+                delete opts.plugins.preroll;
+              }
+              delete opts.advertising;
+              delete opts.adTagUrl;
+            }
+            const player = Reflect.apply(fn, thisArg, args);
+            if (player && player.ima) {
+              try { player.ima = function() {}; } catch(e) {}
+            }
+            return player;
+          }
+        });
+      };
+
+      if (realVideojs) {
+        window.videojs = wrapVideojs(realVideojs);
+      }
+      Object.defineProperty(window, 'videojs', {
+        get: function() { return realVideojs; },
+        set: function(val) {
+          realVideojs = wrapVideojs(val);
+        },
+        configurable: true,
+        enumerable: true
+      });
+    } catch(e) {}
+  }
 })();
