@@ -44,7 +44,7 @@
   const isSafeSite = [
     'coupang.com', 'naver.com', 'daum.net', 'google.', 'youtube.com',
     'github.com', 'toss.im', 'kakao.com', 'netflix.com', 'instagram.com',
-    'twitter.com', 'x.com', 'facebook.com', 'amazon.'
+    'twitter.com', 'x.com', 'facebook.com', 'amazon.', 'ai-open.kr'
   ].some(safe => hostname.includes(safe));
 
   // 1. 화면 전체를 덮는 투명 오버레이(클릭 가로채기 팝업 유도 레이어) 감지 및 무력화
@@ -61,11 +61,20 @@
       candidates.forEach(el => {
         if (el.dataset.overlayChecked === 'true') return;
 
-        // 정상적인 모달, 드롭다운, 백드롭 UI 요소 및 그리드 아이템 제외
+        // 정상적인 모달, 드롭다운, 백드롭 UI 요소, 게임/에뮬레이터 디스플레이 및 그리드 아이템 제외
         const className = (el.className || '').toString().toLowerCase();
         const idName = (el.id || '').toString().toLowerCase();
-        const isNormalUI = ['modal', 'backdrop', 'dim', 'dialog', 'layer', 'portal', 'tooltip', 'dropdown', 'search', 'menu', 'grid-item', 'thumb', 'card'].some(keyword => className.includes(keyword) || idName.includes(keyword));
+        const isNormalUI = [
+          'modal', 'backdrop', 'dim', 'dialog', 'layer', 'portal', 'tooltip', 'dropdown',
+          'search', 'menu', 'grid-item', 'thumb', 'card', 'display', 'game', 'player',
+          'canvas', 'screen', 'viewer', 'stage', 'emulator', 'video'
+        ].some(keyword => className.includes(keyword) || idName.includes(keyword));
         if (isNormalUI) return;
+
+        // 캔버스, 비디오, 오디오 등 정상 미디어 요소를 포함하는 경우 절대 오버레이로 판단하지 않음
+        if (el.querySelector && el.querySelector('canvas, video, audio, embed, object, svg, img')) {
+          return;
+        }
 
         const style = window.getComputedStyle(el);
         const pos = style.getPropertyValue('position');
@@ -77,19 +86,35 @@
 
         // 화면의 60% 이상을 덮는 오버레이
         const isCovering = rect.width >= winW * 0.6 && rect.height >= winH * 0.6;
-        if (isCovering && (opacity < 0.2 || zIndex >= 500)) {
-          // 콘텐츠(이미지, 텍스트)가 거의 없거나 클릭 가로채기용인 경우
-          const hasText = (el.innerText || '').trim().length > 30;
-          const hasInputs = el.querySelector('input, textarea, select');
-          if (!hasText && !hasInputs) {
-            console.log('[AdBlocker] 투명 오버레이 무력화 (React 안전 모드):', el);
-            el.dataset.overlayChecked = 'true';
-            // React의 removeChild 충돌 방지를 위해 el.remove() 대신 스타일만 무력화
-            el.style.setProperty('display', 'none', 'important');
-            el.style.setProperty('pointer-events', 'none', 'important');
-            el.style.setProperty('visibility', 'hidden', 'important');
-            el.style.setProperty('opacity', '0', 'important');
+        if (!isCovering) return;
+
+        // 배경색 투명도 검사 (solid 불투명 배경은 클릭 가로채기 투명 오버레이가 아님)
+        const bgColor = style.getPropertyValue('background-color') || '';
+        let isTransparentBg = false;
+        if (!bgColor || bgColor === 'transparent') {
+          isTransparentBg = true;
+        } else {
+          const m = bgColor.match(/rgba\s*\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*([\d.]+)\s*\)/i);
+          if (m && parseFloat(m[1]) < 0.15) {
+            isTransparentBg = true;
           }
+        }
+
+        // 실제로 투명하거나 반투명한 요소인지 확인 (불투명한 검은색/흰색 화면은 게임/모달이므로 제외)
+        const isTransparent = opacity < 0.15 || (isTransparentBg && opacity <= 1);
+        if (!isTransparent) return;
+
+        // zIndex가 높고(>= 100) 텍스트나 입력 폼/버튼이 없는 투명 클릭 가로채기 레이어
+        const hasText = (el.innerText || '').trim().length > 30;
+        const hasInputs = el.querySelector('input, textarea, select, button');
+        if (!hasText && !hasInputs && zIndex >= 100) {
+          console.log('[AdBlocker] 투명 오버레이 무력화 (React 안전 모드):', el);
+          el.dataset.overlayChecked = 'true';
+          // React의 removeChild 충돌 방지를 위해 el.remove() 대신 스타일만 무력화
+          el.style.setProperty('display', 'none', 'important');
+          el.style.setProperty('pointer-events', 'none', 'important');
+          el.style.setProperty('visibility', 'hidden', 'important');
+          el.style.setProperty('opacity', '0', 'important');
         }
       });
     } catch (error) {}

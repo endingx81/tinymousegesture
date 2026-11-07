@@ -9,7 +9,7 @@
   const isSafeSite = [
     'coupang.com', 'naver.com', 'daum.net', 'google.', 'youtube.com',
     'github.com', 'toss.im', 'kakao.com', 'netflix.com', 'instagram.com',
-    'twitter.com', 'x.com', 'facebook.com', 'amazon.'
+    'twitter.com', 'x.com', 'facebook.com', 'amazon.', 'ai-open.kr'
   ].some(safe => currentHost.includes(safe));
 
   // 1. React / Next.js / 구글 프레임워크 가상 DOM 충돌 방지 안전 래퍼
