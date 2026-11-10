@@ -63,6 +63,9 @@ class BackgroundManager {
       } else if (request.action === 'updateSkipTime') {
         chrome.storage.local.set({ youtubeSkipTime: request.skipTime });
         sendResponse({status: "ok"});
+      } else if (request.action === 'updateTwitterSkipTime') {
+        chrome.storage.local.set({ twitterSkipTime: request.skipTime });
+        sendResponse({status: "ok"});
       } else if (request.action === 'toggleAdBlocker') {
         this.currentState.isAdBlockerEnabled = request.state;
         chrome.storage.local.set({ isAdBlockerEnabled: this.currentState.isAdBlockerEnabled });

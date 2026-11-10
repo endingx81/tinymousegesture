@@ -81,6 +81,17 @@
     },
     {
       "matches": [
+        "*://*.x.com/*",
+        "*://*.twitter.com/*"
+      ],
+      "js": [
+        "twitterControl.js"
+      ],
+      "run_at": "document_idle",
+      "type": "module"
+    },
+    {
+      "matches": [
         "<all_urls>"
       ],
       "js": [

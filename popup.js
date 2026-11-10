@@ -7,10 +7,13 @@ class PopupManager {
     this.saveButton = null;
     this.skipTimeInput = null;
     this.skipTimeSaveButton = null;
+    this.twitterSkipTimeInput = null;
+    this.twitterSkipTimeSaveButton = null;
     this.adBlockerToggle = null;
     this.dcRedirectToggle = null;
     this.lastSavedPrefix = '';
     this.lastSavedSkipTime = 5;
+    this.lastSavedTwitterSkipTime = 10;
     this.isAdBlockerEnabled = false;
     this.isDCRedirectEnabled = true;
     this.POPUP_CLOSE_DELAY = 500;
@@ -22,11 +25,15 @@ class PopupManager {
       this.saveButton = document.getElementById('saveButton');
       this.skipTimeInput = document.getElementById('skipTimeInput');
       this.skipTimeSaveButton = document.getElementById('skipTimeSaveButton');
+      this.twitterSkipTimeInput = document.getElementById('twitterSkipTimeInput');
+      this.twitterSkipTimeSaveButton = document.getElementById('twitterSkipTimeSaveButton');
       this.adBlockerToggle = document.getElementById('adBlockerToggle');
       this.dcRedirectToggle = document.getElementById('dcRedirectToggle');
       
       if (!this.toggleSwitch || !this.searchPrefix || !this.saveButton || 
-          !this.skipTimeInput || !this.skipTimeSaveButton || !this.adBlockerToggle || !this.dcRedirectToggle) {
+          !this.skipTimeInput || !this.skipTimeSaveButton || 
+          !this.twitterSkipTimeInput || !this.twitterSkipTimeSaveButton ||
+          !this.adBlockerToggle || !this.dcRedirectToggle) {
         console.error('필수 UI 요소를 찾을 수 없습니다.');
         return;
       }
@@ -42,7 +49,7 @@ class PopupManager {
       }
 
       // 1. storage에서 데이터 가져오기
-      const storageData = await chrome.storage.local.get(['searchPrefix', 'youtubeSkipTime', 'isAdBlockerEnabled', 'dcRedirectEnabled']);
+      const storageData = await chrome.storage.local.get(['searchPrefix', 'youtubeSkipTime', 'twitterSkipTime', 'isAdBlockerEnabled', 'dcRedirectEnabled']);
 
       // 2. 현재 탭의 복사방지 해제 상태 가져오기
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -67,6 +74,7 @@ class PopupManager {
         isUnblocked: false,
         searchPrefix: '',
         youtubeSkipTime: 5,
+        twitterSkipTime: 10,
         isAdBlockerEnabled: true,
         dcRedirectEnabled: true
       });
@@ -82,6 +90,7 @@ class PopupManager {
         'copyProtectionText': 'copyProtectionToggle',
         'searchPrefixText': 'searchPrefixPlaceholder',
         'youtubeControlText': 'youtubeControlText',
+        'twitterControlText': 'twitterControlText',
         'adBlockerText': 'adBlockerText',
         'dcRedirectText': 'dcRedirectText',
         'bookmarkCleanerTitle': 'bookmarkCleanerTitle',
@@ -110,6 +119,10 @@ class PopupManager {
           this.skipTimeInput.value = data.youtubeSkipTime || 5;
           this.lastSavedSkipTime = data.youtubeSkipTime || 5;
       }
+      if (this.twitterSkipTimeInput) {
+          this.twitterSkipTimeInput.value = data.twitterSkipTime || 10;
+          this.lastSavedTwitterSkipTime = data.twitterSkipTime || 10;
+      }
       if (this.adBlockerToggle) {
           this.adBlockerToggle.checked = data.isAdBlockerEnabled !== false;
           this.isAdBlockerEnabled = data.isAdBlockerEnabled !== false;
@@ -123,10 +136,12 @@ class PopupManager {
       if (this.searchPrefix) this.searchPrefix.placeholder = getMessage('searchPrefixPlaceholder');
       if (this.saveButton) this.saveButton.textContent = getMessage('saveButton');
       if (this.skipTimeSaveButton) this.skipTimeSaveButton.textContent = getMessage('saveButton');
+      if (this.twitterSkipTimeSaveButton) this.twitterSkipTimeSaveButton.textContent = getMessage('saveButton');
 
       // 버튼 초기 상태
       if (this.saveButton) this.saveButton.disabled = true;
       if (this.skipTimeSaveButton) this.skipTimeSaveButton.disabled = true;
+      if (this.twitterSkipTimeSaveButton) this.twitterSkipTimeSaveButton.disabled = true;
     } catch (error) {
       console.error('UI 초기화 오류:', error);
     }
@@ -147,6 +162,12 @@ class PopupManager {
     }
     if (this.skipTimeSaveButton) {
         this.skipTimeSaveButton.addEventListener('click', this.handleSkipTimeSave.bind(this));
+    }
+    if (this.twitterSkipTimeInput) {
+        this.twitterSkipTimeInput.addEventListener('input', this.handleTwitterSkipTimeInput.bind(this));
+    }
+    if (this.twitterSkipTimeSaveButton) {
+        this.twitterSkipTimeSaveButton.addEventListener('click', this.handleTwitterSkipTimeSave.bind(this));
     }
     if (this.adBlockerToggle) {
         this.adBlockerToggle.addEventListener('change', this.handleAdBlockerToggle.bind(this));
@@ -302,6 +323,52 @@ class PopupManager {
         this.skipTimeSaveButton.disabled = false;
         this.skipTimeSaveButton.style.background = '#4285f4';
         this.skipTimeSaveButton.style.cursor = 'pointer';
+      }
+    }
+  }
+
+  handleTwitterSkipTimeInput(e) {
+    const value = parseInt(e.target.value);
+    const isValid = value && value >= 1 && value <= 60;
+    const isDifferent = value !== this.lastSavedTwitterSkipTime;
+    
+    if (this.twitterSkipTimeSaveButton) {
+      this.twitterSkipTimeSaveButton.disabled = !isValid || !isDifferent;
+      
+      if (!this.twitterSkipTimeSaveButton.disabled) {
+        this.twitterSkipTimeSaveButton.style.background = '#4285f4';
+        this.twitterSkipTimeSaveButton.style.cursor = 'pointer';
+      } else {
+        this.twitterSkipTimeSaveButton.style.background = '#cccccc';
+        this.twitterSkipTimeSaveButton.style.cursor = 'not-allowed';
+      }
+    }
+  }
+  
+  async handleTwitterSkipTimeSave() {
+    const skipTime = parseInt(this.twitterSkipTimeInput.value);
+    if (!skipTime || skipTime < 1 || skipTime > 60) return;
+    
+    if (this.twitterSkipTimeSaveButton) {
+      this.twitterSkipTimeSaveButton.disabled = true;
+      this.twitterSkipTimeSaveButton.style.background = '#cccccc';
+      this.twitterSkipTimeSaveButton.style.cursor = 'not-allowed';
+    }
+    
+    try {
+      await chrome.storage.local.set({ twitterSkipTime: skipTime });
+      await chrome.runtime.sendMessage({
+        action: 'updateTwitterSkipTime',
+        skipTime: skipTime
+      }).catch(() => {});
+      this.lastSavedTwitterSkipTime = skipTime;
+      setTimeout(() => window.close(), this.POPUP_CLOSE_DELAY);
+    } catch (error) {
+      console.error('트위터 스킵 시간 저장 오류:', error);
+      if (this.twitterSkipTimeSaveButton) {
+        this.twitterSkipTimeSaveButton.disabled = false;
+        this.twitterSkipTimeSaveButton.style.background = '#4285f4';
+        this.twitterSkipTimeSaveButton.style.cursor = 'pointer';
       }
     }
   }
