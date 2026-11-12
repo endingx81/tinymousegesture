@@ -411,7 +411,6 @@
     Element.prototype.getAttribute = function(name) {
       if (name === 'data-protect-devtools') return '0';
       if (name === 'data-block-adblock') return '0';
-      if (name === 'data-asg-ins' || name === 'data-asg') return null;
       if (name === 'data-tag') {
         const val = originalGetAttribute.apply(this, arguments);
         if (val === 'asg') return '';
@@ -441,11 +440,7 @@
       return originalGetAttribute.apply(this, arguments);
     };
 
-    const originalHasAttribute = Element.prototype.hasAttribute;
-    Element.prototype.hasAttribute = function(name) {
-      if (name === 'data-asg-ins' || name === 'data-asg') return false;
-      return originalHasAttribute.apply(this, arguments);
-    };
+
   } catch(e) {}
 
   // 재귀적 안전 Proxy 생성기 (어떤 메서드나 속성 접근에도 TypeError/ReferenceError 없이 안전 무력화)
@@ -481,63 +476,63 @@
   } catch(e) {}
 
   // 9. sextb.net 애드블록 탐지(sxAb, adblock wall) 완벽 무력화 및 플레이어 자동 복구
-  try {
-    // A. <html> 태그에 data-adfree="1", data-vip="1" 즉시 설정 (sxAb가 자체적으로 검사를 중단하도록 유도)
-    if (document.documentElement) {
-      document.documentElement.setAttribute('data-adfree', '1');
-      document.documentElement.setAttribute('data-vip', '1');
-    }
-
-    // B. 세션 스토리지 및 로컬 스토리지 애드블록 검사 캐시를 영구 통과(false) 상태로 위조
+  if (currentHost.includes('sextb.net')) {
     try {
-      sessionStorage.setItem('sxab', JSON.stringify({ b: false, t: Date.now() + 864000000 }));
-      localStorage.setItem('sxabFree', JSON.stringify({ day: '2099-01-01', films: [16949273] }));
-    } catch(e) {}
+      // A. <html> 태그에 data-adfree="1", data-vip="1" 즉시 설정 (sxAb가 자체적으로 검사를 중단하도록 유도)
+      if (document.documentElement) {
+        document.documentElement.setAttribute('data-adfree', '1');
+        document.documentElement.setAttribute('data-vip', '1');
+      }
 
-    // C. window.__adblockWall 속성을 강제로 false 고정하여 플레이어 덮어쓰기 방지
-    Object.defineProperty(window, '__adblockWall', {
-      get: function() { return false; },
-      set: function() {},
-      configurable: true
-    });
+      // B. 세션 스토리지 및 로컬 스토리지 애드블록 검사 캐시를 영구 통과(false) 상태로 위조
+      try {
+        sessionStorage.setItem('sxab', JSON.stringify({ b: false, t: Date.now() + 864000000 }));
+        localStorage.setItem('sxabFree', JSON.stringify({ day: '2099-01-01', films: [16949273] }));
+      } catch(e) {}
 
-    // D. sxAb 객체 및 adblockBlocks, showAdblockNotice 가로채기
-    const fakeSxAb = {
-      now: function() { return false; },
-      wait: function(cb) { if (typeof cb === 'function') setTimeout(() => cb(false), 0); },
-      recheck: function(cb) { if (typeof cb === 'function') setTimeout(() => cb(false), 0); }
-    };
-    Object.defineProperty(window, 'sxAb', {
-      get: function() { return fakeSxAb; },
-      set: function() {},
-      configurable: true
-    });
-    Object.defineProperty(window, 'adblockBlocks', {
-      get: function() { return function() { return false; }; },
-      set: function() {},
-      configurable: true
-    });
-    Object.defineProperty(window, 'showAdblockNotice', {
-      get: function() { return function() {}; },
-      set: function() {},
-      configurable: true
-    });
+      // C. window.__adblockWall 속성을 강제로 false 고정하여 플레이어 덮어쓰기 방지
+      Object.defineProperty(window, '__adblockWall', {
+        get: function() { return false; },
+        set: function() {},
+        configurable: true
+      });
 
-    // E. 기존 sextbAdblock 호환성 유지
-    const fakeSextbAdblock = function(cb) {
-      if (typeof cb === 'function') setTimeout(() => cb(false), 0);
-    };
-    fakeSextbAdblock.recheck = function(cb) {
-      if (typeof cb === 'function') setTimeout(() => cb(false), 0);
-    };
-    Object.defineProperty(window, 'sextbAdblock', {
-      get: function() { return fakeSextbAdblock; },
-      set: function() {},
-      configurable: true
-    });
+      // D. sxAb 객체 및 adblockBlocks, showAdblockNotice 가로채기
+      const fakeSxAb = {
+        now: function() { return false; },
+        wait: function(cb) { if (typeof cb === 'function') setTimeout(() => cb(false), 0); },
+        recheck: function(cb) { if (typeof cb === 'function') setTimeout(() => cb(false), 0); }
+      };
+      Object.defineProperty(window, 'sxAb', {
+        get: function() { return fakeSxAb; },
+        set: function() {},
+        configurable: true
+      });
+      Object.defineProperty(window, 'adblockBlocks', {
+        get: function() { return function() { return false; }; },
+        set: function() {},
+        configurable: true
+      });
+      Object.defineProperty(window, 'showAdblockNotice', {
+        get: function() { return function() {}; },
+        set: function() {},
+        configurable: true
+      });
 
-    // F. 플레이어가 비어있거나 로딩 상태로 지연될 경우 기본 플레이어 호출 자동 복구
-    if (currentHost.includes('sextb.net')) {
+      // E. 기존 sextbAdblock 호환성 유지
+      const fakeSextbAdblock = function(cb) {
+        if (typeof cb === 'function') setTimeout(() => cb(false), 0);
+      };
+      fakeSextbAdblock.recheck = function(cb) {
+        if (typeof cb === 'function') setTimeout(() => cb(false), 0);
+      };
+      Object.defineProperty(window, 'sextbAdblock', {
+        get: function() { return fakeSextbAdblock; },
+        set: function() {},
+        configurable: true
+      });
+
+      // F. 플레이어가 비어있거나 로딩 상태로 지연될 경우 기본 플레이어 호출 자동 복구
       const checkAndRestore = function() {
         const box = document.getElementById('sextb-player');
         if (box && !box.querySelector('iframe, video')) {
@@ -555,8 +550,8 @@
       };
       setTimeout(checkAndRestore, 1500);
       setTimeout(checkAndRestore, 3000);
-    }
-  } catch(e) {}
+    } catch(e) {}
+  }
 
   // 10. ExoClick AdProvider 및 Tsyndicate / Native Ads 위젯 프로바이더 무력화
   try {

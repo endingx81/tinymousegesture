@@ -68,7 +68,8 @@
         const isNormalUI = [
           'modal', 'backdrop', 'dim', 'dialog', 'layer', 'portal', 'tooltip', 'dropdown',
           'search', 'menu', 'grid-item', 'thumb', 'card', 'display', 'game', 'player',
-          'canvas', 'screen', 'viewer', 'stage', 'emulator', 'video'
+          'canvas', 'screen', 'viewer', 'stage', 'emulator', 'video', 'tray', 'container',
+          'navbar', 'header', 'footer'
         ].some(keyword => className.includes(keyword) || idName.includes(keyword));
         if (isNormalUI) return;
 
@@ -155,11 +156,6 @@
       [class*="native-widget"],
       [class*="exo-native"],
       [class*="msg-native"],
-      div:has(> [class*="native-widget"]),
-      div:has(> [class*="exo-native"]),
-      div:has(> [class*="msg-native"]),
-      div:has([style*="bkcdn.net"]),
-      div:has([style*="pncloudfl.com"]),
       [style*="bkcdn.net"],
       [style*="pncloudfl.com"],
       .adsbyexoclick,
@@ -179,20 +175,8 @@
       a[href*="adspyglass"],
       iframe[src*="adspyglass"],
       iframe[src*="sh-cdn"],
-      div:has(> a[href*="adspyglass"]),
-      div:has(> [data-asg-ins]),
-      div:has(> [data-asg]),
-      div:has(> [data-tag="asg"]),
-      div:has(> [class*="asg-"]),
-      div:has(a[href*="adspyglass"]),
       img[src*="pncloudfl.com"],
       img[src*="bkcdn.net"],
-      div:has(> .exo-ipp-image),
-      div:has(> .msg-ipp-image),
-      div:has(> [class*="exo-ipp"]),
-      div:has(> [class*="msg-ipp"]),
-      div:has(img[src*="pncloudfl.com"]),
-      div:has(img[src*="bkcdn.net"]),
       iframe[src*="0lluihle"],
       iframe[src*="realsrv"],
       iframe.na,
@@ -477,28 +461,49 @@
 
         let parent = el.parentElement;
         let depth = 0;
-        while (parent && parent !== document.body && parent !== document.documentElement && depth < 6) {
-          if (parent.id === 'sextb-player' || parent.classList.contains('player-wrapper') || parent.classList.contains('player_div')) {
+        while (parent && parent !== document.body && parent !== document.documentElement && depth < 4) {
+          // 중요 컨테이너, 레이아웃, 플레이어, 정상 콘텐츠 래퍼는 절대 부모 은닉하지 않음
+          if (
+            parent.id === 'sextb-player' || 
+            parent.id === 'app' || 
+            parent.id === 'root' || 
+            parent.id === 'content' || 
+            parent.id === 'main' ||
+            parent.classList.contains('container') || 
+            parent.classList.contains('tray') || 
+            parent.classList.contains('player-wrapper') || 
+            parent.classList.contains('player_div') ||
+            parent.tagName === 'MAIN' || 
+            parent.tagName === 'ARTICLE' || 
+            parent.tagName === 'SECTION' || 
+            parent.tagName === 'NAV' || 
+            parent.tagName === 'HEADER' || 
+            parent.tagName === 'FOOTER' ||
+            (parent.querySelector && parent.querySelector('.container, .tray, .movie-card, .grid-item, video, iframe, h1, h2, h3, h4, h5, article, section, nav')) ||
+            (parent.innerText || '').length > 80
+          ) {
             break;
           }
+
           const pStyle = window.getComputedStyle(parent);
           const pPos = pStyle.getPropertyValue('position');
           const pText = (parent.innerText || '').toLowerCase();
-          const isAdBox = pPos === 'fixed' || pPos === 'absolute' || 
-                          parent.classList.contains('ts-im-ad-link') || 
-                          parent.classList.contains('msg-native-widget') ||
-                          parent.classList.contains('exo-native-widget') ||
-                          parent.classList.contains('msg-native-widget-outer-container') ||
-                          parent.hasAttribute('data-idzone') ||
-                          parent.hasAttribute('data-zoneid') ||
-                          parent.hasAttribute('data-asg-ins') ||
-                          parent.hasAttribute('data-asg') ||
-                          parent.getAttribute('data-tag') === 'asg' ||
-                          parent.querySelector('a[href*="adspyglass"]') ||
-                          pText.includes('adspyglass') ||
-                          pText.includes('are you 18+') || 
-                          pText.includes('fake porn');
-          if (isAdBox) {
+          const isExplicitAdWrapper = parent.classList.contains('ts-im-ad-link') || 
+                                     parent.classList.contains('msg-native-widget') ||
+                                     parent.classList.contains('exo-native-widget') ||
+                                     parent.classList.contains('msg-native-widget-outer-container') ||
+                                     parent.classList.contains('exo-native-widget-outer-container') ||
+                                     parent.classList.contains('asg-ad-container') ||
+                                     parent.classList.contains('asg-container') ||
+                                     parent.hasAttribute('data-idzone') ||
+                                     parent.hasAttribute('data-zoneid') ||
+                                     parent.hasAttribute('data-asg-ins') ||
+                                     parent.hasAttribute('data-asg');
+
+          const isFloatingAd = (pPos === 'fixed' || pPos === 'absolute') && 
+                               (pText.includes('are you 18+') || pText.includes('fake porn') || pText.includes('adspyglass'));
+
+          if (isExplicitAdWrapper || isFloatingAd) {
             parent.style.setProperty('display', 'none', 'important');
             parent.style.setProperty('pointer-events', 'none', 'important');
             parent.style.setProperty('visibility', 'hidden', 'important');
