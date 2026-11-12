@@ -470,3 +470,4 @@ class TwitterController {
 
 // 컨트롤러 인스턴스 초기화
 new TwitterController();
+

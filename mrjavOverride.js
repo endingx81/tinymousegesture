@@ -448,13 +448,31 @@
     };
   } catch(e) {}
 
+  // 재귀적 안전 Proxy 생성기 (어떤 메서드나 속성 접근에도 TypeError/ReferenceError 없이 안전 무력화)
+  const makeRecursiveProxy = function() {
+    const p = new Proxy(function() { return p; }, {
+      get: function(target, prop) {
+        if (prop === 'length') return 0;
+        if (prop === Symbol.iterator) return function* () {};
+        if (prop === 'toString' || prop === Symbol.toPrimitive) return () => '';
+        return p;
+      },
+      apply: function() { return p; },
+      construct: function() { return p; }
+    });
+    return p;
+  };
+
   // 8. 애드블록 탐지(adsbygoogle probe fetch) 응답 위조 (가짜 200 OK 반환)
   try {
     const origFetch = window.fetch;
     if (origFetch) {
       window.fetch = function(input, init) {
         const url = (typeof input === 'string') ? input : (input && input.url ? input.url : '');
-        if (url.includes('pagead2.googlesyndication.com') || url.includes('adsbygoogle')) {
+        if (url.includes('pagead2.googlesyndication.com') || 
+            url.includes('adsbygoogle') ||
+            url.includes('doubleclick.net') ||
+            url.includes('ad_status.js')) {
           return Promise.resolve(new Response('', { status: 200 }));
         }
         return origFetch.apply(this, arguments);
@@ -462,8 +480,50 @@
     }
   } catch(e) {}
 
-  // 9. sextb.net 무료 재생 횟수 제한(adblock wall) 무력화 (항상 정상 상태 반환)
+  // 9. sextb.net 애드블록 탐지(sxAb, adblock wall) 완벽 무력화 및 플레이어 자동 복구
   try {
+    // A. <html> 태그에 data-adfree="1", data-vip="1" 즉시 설정 (sxAb가 자체적으로 검사를 중단하도록 유도)
+    if (document.documentElement) {
+      document.documentElement.setAttribute('data-adfree', '1');
+      document.documentElement.setAttribute('data-vip', '1');
+    }
+
+    // B. 세션 스토리지 및 로컬 스토리지 애드블록 검사 캐시를 영구 통과(false) 상태로 위조
+    try {
+      sessionStorage.setItem('sxab', JSON.stringify({ b: false, t: Date.now() + 864000000 }));
+      localStorage.setItem('sxabFree', JSON.stringify({ day: '2099-01-01', films: [16949273] }));
+    } catch(e) {}
+
+    // C. window.__adblockWall 속성을 강제로 false 고정하여 플레이어 덮어쓰기 방지
+    Object.defineProperty(window, '__adblockWall', {
+      get: function() { return false; },
+      set: function() {},
+      configurable: true
+    });
+
+    // D. sxAb 객체 및 adblockBlocks, showAdblockNotice 가로채기
+    const fakeSxAb = {
+      now: function() { return false; },
+      wait: function(cb) { if (typeof cb === 'function') setTimeout(() => cb(false), 0); },
+      recheck: function(cb) { if (typeof cb === 'function') setTimeout(() => cb(false), 0); }
+    };
+    Object.defineProperty(window, 'sxAb', {
+      get: function() { return fakeSxAb; },
+      set: function() {},
+      configurable: true
+    });
+    Object.defineProperty(window, 'adblockBlocks', {
+      get: function() { return function() { return false; }; },
+      set: function() {},
+      configurable: true
+    });
+    Object.defineProperty(window, 'showAdblockNotice', {
+      get: function() { return function() {}; },
+      set: function() {},
+      configurable: true
+    });
+
+    // E. 기존 sextbAdblock 호환성 유지
     const fakeSextbAdblock = function(cb) {
       if (typeof cb === 'function') setTimeout(() => cb(false), 0);
     };
@@ -475,28 +535,52 @@
       set: function() {},
       configurable: true
     });
+
+    // F. 플레이어가 비어있거나 로딩 상태로 지연될 경우 기본 플레이어 호출 자동 복구
+    if (currentHost.includes('sextb.net')) {
+      const checkAndRestore = function() {
+        const box = document.getElementById('sextb-player');
+        if (box && !box.querySelector('iframe, video')) {
+          if (typeof window.player_default === 'function' && window.filmId) {
+            console.log('[sextb] 플레이어 자동 복구 실행 (player_default)');
+            window.player_default(window.filmId);
+          } else {
+            const btn = document.querySelector('button.btn-player.active') || document.querySelector('button.btn-player');
+            if (btn) {
+              console.log('[sextb] 플레이어 자동 복구 실행 (btn-player click)');
+              btn.click();
+            }
+          }
+        }
+      };
+      setTimeout(checkAndRestore, 1500);
+      setTimeout(checkAndRestore, 3000);
+    }
   } catch(e) {}
 
-  // 10. ExoClick AdProvider 및 Native Ads 위젯 프로바이더 무력화
+  // 10. ExoClick AdProvider 및 Tsyndicate / Native Ads 위젯 프로바이더 무력화
   try {
-    const fakeAdProvider = [];
-    fakeAdProvider.push = function() { return 0; };
+    const fakeAdProvider = makeRecursiveProxy();
     Object.defineProperty(window, 'AdProvider', {
       get: function() { return fakeAdProvider; },
       set: function() {},
       configurable: true
     });
+
+    const fakeTs = makeRecursiveProxy();
+    ['TsMasterSpot', 'ts_im_ad', 'TsVideoInstantMessage', 'TsInstantMessage', 'tsyndicate'].forEach(name => {
+      try {
+        Object.defineProperty(window, name, {
+          get: function() { return fakeTs; },
+          set: function() {},
+          configurable: true
+        });
+      } catch(e) {}
+    });
   } catch(e) {}
 
   // 11. AdSpyglass 전역 객체 및 초기화 차단
   try {
-    const makeRecursiveProxy = function() {
-      const p = new Proxy(function() { return p; }, {
-        get: function() { return p; },
-        apply: function() { return p; }
-      });
-      return p;
-    };
     const fakeAsg = makeRecursiveProxy();
 
     Object.defineProperty(window, '__initAsg', {

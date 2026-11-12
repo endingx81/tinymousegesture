@@ -478,6 +478,9 @@
         let parent = el.parentElement;
         let depth = 0;
         while (parent && parent !== document.body && parent !== document.documentElement && depth < 6) {
+          if (parent.id === 'sextb-player' || parent.classList.contains('player-wrapper') || parent.classList.contains('player_div')) {
+            break;
+          }
           const pStyle = window.getComputedStyle(parent);
           const pPos = pStyle.getPropertyValue('position');
           const pText = (parent.innerText || '').toLowerCase();
