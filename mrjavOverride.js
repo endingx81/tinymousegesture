@@ -475,9 +475,54 @@
     }
   } catch(e) {}
 
-  // 9. sextb.net 애드블록 탐지(sxAb, adblock wall) 완벽 무력화 및 플레이어 자동 복구
-  if (currentHost.includes('sextb.net')) {
+  // 9. sextb.net 애드블록 탐지(sxAb, adblock wall) 완벽 무력화, 클릭재킹 팝언더 차단 및 플레이어 자동 복구
+  const isSextbFamily = currentHost.includes('sextb.net') || 
+                        currentHost.includes('hglink.to') || 
+                        currentHost.includes('hgcloud.to') || 
+                        currentHost.includes('hanerix.com') || 
+                        currentHost.includes('audinifer.com') || 
+                        currentHost.includes('vibuxer.com');
+
+  if (isSextbFamily) {
     try {
+      // 0. 화면 클릭 시 강제 팝업/팝언더 광고(window.open) 차단
+      const origWindowOpen = window.open;
+      window.open = function(url, target, features) {
+        if (!url || typeof url !== 'string' || 
+            url.includes('1vtkmu16') || url.includes('shg.js') || url.includes('directlink') || 
+            url.includes('popunder') || url.includes('syndicate') || url.includes('trafficjunky') || 
+            url.includes('exoclick') || url.includes('stripchat') || url.includes('ad') ||
+            url.includes('click') || url.includes('track') || url === 'about:blank') {
+          console.log('[tinymousegesture] Blocked sextb popup/popunder ad:', url);
+          return null;
+        }
+        // 플레이어 화면 내에서의 클릭은 새 창 팝업을 전면 억제
+        console.log('[tinymousegesture] Suppressed sextb player popup:', url);
+        return null;
+      };
+
+      // 0-1. pickDirect 및 uas 광고 배열 무력화
+      window.pickDirect = function() { return false; };
+      try {
+        Object.defineProperty(window, 'uas', {
+          get: function() { return []; },
+          set: function() {},
+          configurable: true
+        });
+      } catch(e) {}
+
+      // 0-2. 투명 클릭재킹 오버레이 레이어 즉시 제거 (z-index 9999999 등)
+      const removeAdOverlays = function() {
+        const adLayers = document.querySelectorAll('div[id^="__directlink"], div[style*="9999999"], div[style*="z-index: 999999"]');
+        adLayers.forEach(el => {
+          if (!el.querySelector('video, iframe, canvas')) {
+            el.remove();
+          }
+        });
+      };
+      removeAdOverlays();
+      setInterval(removeAdOverlays, 300);
+
       // A. <html> 태그에 data-adfree="1", data-vip="1" 즉시 설정 (sxAb가 자체적으로 검사를 중단하도록 유도)
       if (document.documentElement) {
         document.documentElement.setAttribute('data-adfree', '1');
