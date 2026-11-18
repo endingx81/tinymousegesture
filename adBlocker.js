@@ -8,6 +8,7 @@
   const isTwidougaSite = hostname.includes('twidouga.net');
   const isSwiftUploadsSite = hostname.includes('swiftuploads.com');
   const isGameRepackSite = hostname.includes('game-repack.site');
+  const isMegaupSite = hostname.includes('megaup.net');
   let isMrJavSite = false;
   try {
     isMrJavSite = hostname.includes('mrjav.net') || (window.top && window.top.location.hostname.includes('mrjav.net'));
@@ -24,7 +25,7 @@
     'richpush', 'clickguard', 'zeroredirect', 'adrevenue', 'adsupply',
     'adcolony', 'taboola', 'outbrain', 'bet365', '1xbet',
     '0lluihle', 'realsrv', 'bkcdn', 'pncloudfl', 'labadena', 'tapioni', 'affectionatestorage', 'runative-syndicate',
-    'adspyglass', 'sh-cdn', 'antiadxxxspy', '0i0i0i0'
+    'adspyglass', 'sh-cdn', 'antiadxxxspy', '0i0i0i0', 'werefilledwit', 'deofleadyetca', 'unlockr'
   ];
 
   const allowedDownloadHosts = [
@@ -38,7 +39,8 @@
     'rutracker.org', 'katfile.com', 'rosefile.net', 'dropgalaxy.com',
     'modsfire.com', 'anonfiles.com', 'bayfiles.com', 'uploadhaven.com',
     'fuckingfast.co', 'clicknupload.click', 'clicknupload.net', 'hexupload.net',
-    'userscloud.com', 'filestore.me', 'vshare.eu', 'streamtape.com'
+    'userscloud.com', 'filestore.me', 'vshare.eu', 'streamtape.com',
+    'megaup.net', 'download.megaup.net'
   ];
 
   // 정상 서비스 사이트 목록 (React/Next.js 기반 모달 및 딤 레이어를 보호)
@@ -224,6 +226,26 @@
           visibility: visible !important;
           opacity: 1 !important;
           pointer-events: auto !important;
+        }
+      `;
+    }
+
+    // megaup.net 전용 스타일 (배너 광고 및 팝업 오버레이 숨김)
+    if (isMegaupSite) {
+      css += `
+        .advert-wrapper,
+        .bottom-advert,
+        .advert-page-footer,
+        div[class*="advert"],
+        iframe[src*="werefilledwit"],
+        iframe[src*="deofleadyetca"],
+        iframe[src*="unlockr"],
+        .pum-overlay {
+          display: none !important;
+          visibility: hidden !important;
+          opacity: 0 !important;
+          height: 0 !important;
+          pointer-events: none !important;
         }
       `;
     }
@@ -438,6 +460,67 @@
           }
         } catch(e) {}
       }, 500);
+    }
+
+    if (isMegaupSite) {
+      // 1. 진짜 다운로드 링크 클릭 시 광고 가로채기 방지 및 네비게이션 보장
+      window.addEventListener('click', function(e) {
+        const link = e.target.closest ? e.target.closest('a') : null;
+        if (!link) return;
+        const href = (link.href || '').trim();
+        const isMegaupDownload = href.includes('download.megaup.net') || (href.includes('megaup.net') && href.includes('?url='));
+        if (isMegaupDownload) {
+          link.removeAttribute('target');
+          e.stopPropagation();
+          console.log('[Megaup] 다운로드 링크 클릭 보호:', href);
+          return;
+        }
+
+        // 외부 광고 링크 클릭 시 차단
+        const isInternal = href.includes(hostname) || href.startsWith('/') || href.startsWith('#') || href.startsWith('javascript:');
+        const isAllowed = allowedDownloadHosts.some(domain => href.toLowerCase().includes(domain));
+        if (!isInternal && !isAllowed) {
+          e.preventDefault();
+          e.stopPropagation();
+          console.warn('[Megaup] 외부 광고 링크 클릭 차단:', href);
+        }
+      }, true);
+
+      // 2. 카운트다운 스킵 및 다운로드 링크 즉시 노출
+      const revealMegaupDownload = function() {
+        try {
+          const timerEl = document.querySelector('.download-timer');
+          const btnFreeEl = document.querySelector('.btn-free-element');
+          if (!timerEl) return;
+
+          const existingLink = timerEl.querySelector('a[href*="download.megaup.net"]');
+          if (existingLink) {
+            timerEl.style.setProperty('display', 'block', 'important');
+            if (btnFreeEl) btnFreeEl.style.setProperty('display', 'none', 'important');
+            existingLink.removeAttribute('target');
+            return;
+          }
+
+          const scripts = document.querySelectorAll('script:not([src])');
+          for (let s of scripts) {
+            const m = s.textContent.match(/https:\/\/download\.megaup\.net\/\?url=[a-zA-Z0-9+/=]+/);
+            if (m && m[0]) {
+              const downloadUrl = m[0];
+              timerEl.innerHTML = `<a class="btn btn--primary" href="${downloadUrl}"><span class="btn__text">DOWNLOAD / VIEW NOW</span></a>`;
+              timerEl.style.setProperty('display', 'block', 'important');
+              if (btnFreeEl) btnFreeEl.style.setProperty('display', 'none', 'important');
+              const newLink = timerEl.querySelector('a');
+              if (newLink) newLink.removeAttribute('target');
+              console.log('[Megaup] 다운로드 링크 즉시 노출 성공:', downloadUrl);
+              break;
+            }
+          }
+        } catch(e) {}
+      };
+
+      revealMegaupDownload();
+      const megaupTimer = setInterval(revealMegaupDownload, 200);
+      setTimeout(() => clearInterval(megaupTimer), 5000);
     }
   }
   

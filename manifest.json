@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "tiny mouse gesture & etc.",
-  "version": "1.7",
+  "version": "1.8",
   "description": "Navigate web pages with mouse gestures and bypass copy protection. Fast and lightweight extension.",
   "homepage_url": "https://github.com/purestory/tinymousegesture",
   "permissions": [
@@ -86,6 +86,16 @@
       ],
       "js": [
         "twitterControl.js"
+      ],
+      "run_at": "document_idle",
+      "type": "module"
+    },
+    {
+      "matches": [
+        "*://*.mrjav.net/*"
+      ],
+      "js": [
+        "mrjavControl.js"
       ],
       "run_at": "document_idle",
       "type": "module"

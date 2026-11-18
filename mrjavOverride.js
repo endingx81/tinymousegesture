@@ -4,6 +4,7 @@
   window.__MainPopupBlocker = true;
 
   const currentHost = window.location.hostname.toLowerCase().replace(/^www\./, '');
+  const isMegaupSite = currentHost.includes('megaup.net');
 
   // 정상적인 대형 서비스 도메인 목록 (쿠팡, 구글, 네이버 등 SPA 프레임워크 보호)
   const isSafeSite = [
@@ -43,7 +44,8 @@
     'adsupply', 'adcolony', 'taboola', 'outbrain', 'bet365', '1xbet',
     'casinogames', '0lluihle', 'realsrv', 'bkcdn', 'pncloudfl', 'labadena',
     'tapioni', 'affectionatestorage', 'runative-syndicate',
-    'adspyglass', 'sh-cdn', 'antiadxxxspy', '0i0i0i0'
+    'adspyglass', 'sh-cdn', 'antiadxxxspy', '0i0i0i0',
+    'werefilledwit', 'deofleadyetca', 'unlockr'
   ];
 
   // 3. 신뢰할 수 있는 인증(OAuth) 및 결제, 공인 서비스 도메인 목록 (정상 팝업 허용)
@@ -68,7 +70,8 @@
     'rutracker.org', 'katfile.com', 'rosefile.net', 'dropgalaxy.com',
     'modsfire.com', 'anonfiles.com', 'bayfiles.com', 'uploadhaven.com',
     'fuckingfast.co', 'clicknupload.click', 'clicknupload.net', 'hexupload.net',
-    'userscloud.com', 'filestore.me', 'vshare.eu', 'streamtape.com'
+    'userscloud.com', 'filestore.me', 'vshare.eu', 'streamtape.com',
+    'megaup.net', 'download.megaup.net'
   ];
 
   // Helper: URL 파싱 및 도메인 추출
@@ -225,6 +228,14 @@
     if (urlStr && isBlockedAdUrl(urlStr)) {
       console.warn('[MAIN world 팝업 차단] 광고 도메인 차단:', urlStr);
       return fakeWindow;
+    }
+
+    // A-1. megaup.net 사이트에서의 모든 광고 팝업 차단 (진짜 다운로드 링크 제외)
+    if (isMegaupSite) {
+      if (!urlStr || urlStr === 'about:blank' || (!urlStr.includes('download.megaup.net') && !urlStr.includes('megaup.net'))) {
+        console.warn('[MAIN world 팝업 차단] megaup 광고 팝업 원천 차단:', urlStr);
+        return fakeWindow;
+      }
     }
 
     // B. 쿠팡, 구글, 네이버 등 정상 서비스 사이트인 경우
@@ -726,6 +737,73 @@
         configurable: true,
         enumerable: true
       });
+    } catch(e) {}
+  }
+
+  // 10. megaup.net 카운트다운 단축, 다운로드 버튼 즉시 활성화 및 팝업/SW 광고 차단
+  if (isMegaupSite) {
+    try {
+      // ServiceWorker 등록 차단 (백그라운드 푸시/팝업 광고 원천 차단)
+      if (navigator.serviceWorker) {
+        navigator.serviceWorker.register = function() {
+          console.log('[MAIN world] megaup ServiceWorker 등록 차단');
+          return new Promise(() => {});
+        };
+      }
+
+      // seconds 변수 오버라이드 (항상 0초 유지하여 즉시 다운로드 버튼 생성)
+      try {
+        let _megaupSec = 0;
+        Object.defineProperty(window, 'seconds', {
+          get: function() { return 0; },
+          set: function(val) {
+            _megaupSec = 0;
+            if (typeof window.display === 'function') {
+              try { window.display(); } catch(e) {}
+            }
+          },
+          configurable: true
+        });
+      } catch(e) {}
+
+      // 카운트다운 인터벌 단축 및 display() 즉시 실행
+      const fastMegaupDownload = function() {
+        try {
+          if (typeof window.seconds !== 'undefined') window.seconds = 0;
+          if (typeof window.triggerFreeDownload === 'function' && !window.started) {
+            window.triggerFreeDownload();
+          }
+          if (typeof window.display === 'function') {
+            window.seconds = 0;
+            window.display();
+          }
+          if (window.countdownTimer) {
+            clearInterval(window.countdownTimer);
+          }
+        } catch(e) {}
+      };
+
+      const fastInterval = setInterval(fastMegaupDownload, 50);
+      setTimeout(() => clearInterval(fastInterval), 4000);
+
+      document.addEventListener('DOMContentLoaded', fastMegaupDownload);
+      window.addEventListener('load', fastMegaupDownload);
+
+      // 다운로드 링크 클릭 시 광고 이벤트 리스너로 전파 방지
+      const protectMegaupClick = function(e) {
+        const a = e.target && e.target.closest ? e.target.closest('a') : null;
+        if (!a) return;
+        const href = a.getAttribute('href') || a.href || '';
+        if (href.includes('download.megaup.net') || (href.includes('megaup.net') && href.includes('?url='))) {
+          a.removeAttribute('target');
+          e.stopPropagation();
+          console.log('[MAIN world] megaup 다운로드 링크 클릭 보호:', href);
+        }
+      };
+
+      window.addEventListener('click', protectMegaupClick, true);
+      window.addEventListener('mousedown', protectMegaupClick, true);
+      window.addEventListener('pointerdown', protectMegaupClick, true);
     } catch(e) {}
   }
 })();

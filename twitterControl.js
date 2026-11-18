@@ -49,7 +49,7 @@ class TwitterController {
     styleEl.textContent = `
       .x-custom-video-controls {
         position: absolute;
-        bottom: 52px;
+        bottom: 56px;
         left: 14px;
         z-index: 9999;
         display: flex;
@@ -57,14 +57,25 @@ class TwitterController {
         gap: 6px;
         opacity: 0;
         pointer-events: none;
-        transition: opacity 0.2s ease, transform 0.2s ease, bottom 0.2s ease;
+        transition: opacity 0.2s ease, transform 0.2s ease;
         user-select: none;
         -webkit-user-select: none;
       }
 
+      /* 플레이어에 마우스가 호버되어 있거나 컨트롤 자체에 호버된 경우 항상 떠있도록 보장 */
+      [data-testid="videoPlayer"]:hover .x-custom-video-controls,
+      [data-testid="videoComponent"]:hover .x-custom-video-controls,
+      div[style*="aspect-ratio"]:hover .x-custom-video-controls,
+      .x-custom-video-controls:hover,
       .x-custom-video-controls.visible {
         opacity: 1 !important;
         pointer-events: auto !important;
+      }
+
+      /* 전체화면 모드 대응 */
+      :fullscreen .x-custom-video-controls,
+      [data-fullscreen="true"] .x-custom-video-controls {
+        bottom: 68px;
       }
 
       .x-custom-skip-btn {
@@ -117,43 +128,6 @@ class TwitterController {
         font-size: 11px !important;
         font-weight: 700 !important;
         letter-spacing: -0.2px !important;
-      }
-
-      /* 스킵 애니메이션 토스트 (화면 중앙 피드백) */
-      .x-custom-skip-toast {
-        position: absolute !important;
-        top: 50% !important;
-        left: 50% !important;
-        transform: translate(-50%, -50%) scale(0.85) !important;
-        background: rgba(0, 0, 0, 0.8) !important;
-        backdrop-filter: blur(10px) !important;
-        -webkit-backdrop-filter: blur(10px) !important;
-        color: #ffffff !important;
-        padding: 10px 18px !important;
-        border-radius: 24px !important;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-        font-size: 14px !important;
-        font-weight: 700 !important;
-        display: flex !important;
-        align-items: center !important;
-        gap: 8px !important;
-        pointer-events: none !important;
-        opacity: 0 !important;
-        z-index: 10000 !important;
-        transition: opacity 0.2s cubic-bezier(0.16, 1, 0.3, 1), transform 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
-        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.6) !important;
-        border: 1px solid rgba(255, 255, 255, 0.15) !important;
-      }
-
-      .x-custom-skip-toast.show {
-        opacity: 1 !important;
-        transform: translate(-50%, -50%) scale(1) !important;
-      }
-
-      .x-custom-skip-toast svg {
-        width: 16px !important;
-        height: 16px !important;
-        fill: currentColor !important;
       }
     `;
 
@@ -244,12 +218,58 @@ class TwitterController {
       <svg viewBox="0 0 24 24"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>
     `;
 
+    // 마우스 호버 및 인터랙션 상태 관리
+    let isHoveringControls = false;
+    let isHoveringPlayer = false;
+    let hideTimer = null;
+
+    const resetHideTimer = () => {
+      if (hideTimer) {
+        clearTimeout(hideTimer);
+        hideTimer = null;
+      }
+    };
+
+    const scheduleHide = (delay = 3000) => {
+      resetHideTimer();
+      // 마우스가 플레이어나 컨트롤 위에 있거나, 영상이 멈춰있으면 절대 숨기지 않음
+      if (isHoveringControls || isHoveringPlayer || video.paused || video.ended) {
+        return;
+      }
+      hideTimer = setTimeout(() => {
+        if (!isHoveringControls && !isHoveringPlayer && !video.paused && !video.ended) {
+          controls.classList.remove('visible');
+        }
+      }, delay);
+    };
+
+    const showControls = () => {
+      controls.classList.add('visible');
+      if (isHoveringControls || isHoveringPlayer || video.paused || video.ended) {
+        resetHideTimer();
+      } else {
+        scheduleHide(3000);
+      }
+    };
+
+    const hideControls = () => {
+      resetHideTimer();
+      if (!isHoveringControls && !isHoveringPlayer && !video.paused && !video.ended) {
+        controls.classList.remove('visible');
+      }
+    };
+
     // 이벤트 캡처 단계에서 트위터 내부 재생/일시정지 및 트윗 확장 이벤트 전파 차단
     const bindEvents = (btn, isForward) => {
       ['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'touchstart', 'touchend', 'dblclick'].forEach(evtName => {
         btn.addEventListener(evtName, (e) => {
           e.stopPropagation();
           e.stopImmediatePropagation();
+          // 버튼 클릭 및 인터랙션 시 항상 controls 표시 유지 및 타이머 리셋
+          isHoveringControls = true;
+          resetHideTimer();
+          controls.classList.add('visible');
+
           if (evtName === 'click') {
             e.preventDefault();
             const delta = isForward ? this.skipTime : -this.skipTime;
@@ -267,88 +287,82 @@ class TwitterController {
     playerContainer.appendChild(controls);
 
     video.__xControlsAttached = controls;
-
-    // 마우스 호버 및 재생 상태에 따른 표시/숨김 제어
-    let hideTimer = null;
-    const showControls = () => {
-      this.adjustControlsPosition(playerContainer, controls);
-      controls.classList.add('visible');
-      if (hideTimer) clearTimeout(hideTimer);
-      if (!video.paused && !video.ended) {
-        hideTimer = setTimeout(() => {
-          controls.classList.remove('visible');
-        }, 2500);
-      }
-    };
-
-    const hideControls = () => {
-      if (hideTimer) clearTimeout(hideTimer);
-      if (!video.paused && !video.ended) {
-        controls.classList.remove('visible');
-      }
-    };
+    video.__xControlsScheduleHide = scheduleHide;
 
     playerContainer.addEventListener('mouseenter', () => {
       this.currentHoveredVideo = video;
-      showControls();
+      isHoveringPlayer = true;
+      resetHideTimer();
+      controls.classList.add('visible');
     });
 
     playerContainer.addEventListener('mousemove', () => {
-      showControls();
+      this.currentHoveredVideo = video;
+      isHoveringPlayer = true;
+      resetHideTimer();
+      controls.classList.add('visible');
     });
 
     playerContainer.addEventListener('mouseleave', () => {
       if (this.currentHoveredVideo === video) {
         this.currentHoveredVideo = null;
       }
-      hideControls();
+      isHoveringPlayer = false;
+      isHoveringControls = false;
+      scheduleHide(1000);
     });
 
     controls.addEventListener('mouseenter', () => {
-      if (hideTimer) clearTimeout(hideTimer);
+      isHoveringControls = true;
+      resetHideTimer();
       controls.classList.add('visible');
     });
 
-    video.addEventListener('play', showControls);
+    controls.addEventListener('mousemove', () => {
+      isHoveringControls = true;
+      resetHideTimer();
+      controls.classList.add('visible');
+    });
+
+    controls.addEventListener('mouseleave', () => {
+      isHoveringControls = false;
+      if (isHoveringPlayer) {
+        resetHideTimer();
+        controls.classList.add('visible');
+      } else {
+        scheduleHide(1500);
+      }
+    });
+
+    video.addEventListener('play', () => {
+      if (isHoveringPlayer || isHoveringControls) {
+        resetHideTimer();
+        controls.classList.add('visible');
+      } else {
+        scheduleHide(2500);
+      }
+    });
+
     video.addEventListener('pause', () => {
-      if (hideTimer) clearTimeout(hideTimer);
-      controls.classList.add('visible');
-    });
-    video.addEventListener('ended', () => {
+      resetHideTimer();
       controls.classList.add('visible');
     });
 
-    // 초기 상태: 영상이 일시정지 중이면 버튼 바로 표시
+    video.addEventListener('ended', () => {
+      resetHideTimer();
+      controls.classList.add('visible');
+    });
+
+    // 초기 상태: 영상이 일시정지 중이거나 준비되면 버튼 바로 표시
     if (video.paused) {
       showControls();
     }
   }
 
-  // 트위터 하단 컨트롤 바 높이에 맞게 버튼 위치 자동 보정
+  // 슬라이드(컨트롤 바)의 등장/퇴장 이동과 관계없이 항상 동일한 고정 위치 유지
   adjustControlsPosition(playerContainer, controlsEl) {
-    try {
-      const playerRect = playerContainer.getBoundingClientRect();
-      if (playerRect.height === 0) return;
-
-      const nativeControl = playerContainer.querySelector('[role="slider"], [aria-label*="Play" i], [aria-label*="Pause" i], [aria-label*="재생" i], [aria-label*="일시" i]');
-      if (nativeControl) {
-        let current = nativeControl.parentElement;
-        while (current && current !== playerContainer) {
-          const style = window.getComputedStyle(current);
-          const rect = current.getBoundingClientRect();
-          if (style.position === 'absolute' || rect.bottom >= playerRect.bottom - 10) {
-            if (rect.height >= 24 && rect.height <= 80) {
-              const bottomGap = Math.max(48, Math.round(playerRect.bottom - rect.top + 8));
-              controlsEl.style.bottom = `${bottomGap}px`;
-              return;
-            }
-          }
-          current = current.parentElement;
-        }
-      }
-    } catch (e) {}
-
-    controlsEl.style.bottom = '52px';
+    if (!controlsEl) return;
+    controlsEl.style.bottom = ''; // 동적 인라인 스타일을 비워 CSS 고정값(56px) 유지
   }
 
   seekVideo(video, seconds, playerContainer) {
@@ -358,38 +372,6 @@ class TwitterController {
     const duration = video.duration || Infinity;
     const target = Math.max(0, Math.min(duration, current + seconds));
     video.currentTime = target;
-
-    const label = seconds > 0 ? `+${Math.abs(seconds)}s` : `-${Math.abs(seconds)}s`;
-    const direction = seconds > 0 ? 'forward' : 'backward';
-    this.showToast(playerContainer, label, direction);
-  }
-
-  showToast(playerContainer, text, direction) {
-    if (!playerContainer) return;
-
-    let toast = playerContainer.querySelector('.x-custom-skip-toast');
-    if (!toast) {
-      toast = document.createElement('div');
-      toast.className = 'x-custom-skip-toast';
-      playerContainer.appendChild(toast);
-    }
-
-    const iconSvg = direction === 'forward'
-      ? '<svg viewBox="0 0 24 24"><path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z"/></svg>'
-      : '<svg viewBox="0 0 24 24"><path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z"/></svg>';
-
-    toast.innerHTML = direction === 'forward'
-      ? `<span>${text}</span> ${iconSvg}`
-      : `${iconSvg} <span>${text}</span>`;
-
-    toast.classList.remove('show');
-    void toast.offsetWidth; // Force Reflow
-    toast.classList.add('show');
-
-    if (toast.__hideTimer) clearTimeout(toast.__hideTimer);
-    toast.__hideTimer = setTimeout(() => {
-      toast.classList.remove('show');
-    }, 600);
   }
 
   setupKeyboardShortcuts() {
@@ -423,6 +405,14 @@ class TwitterController {
                           targetVideo.closest('[data-testid="videoComponent"]') ||
                           targetVideo.parentElement;
         this.seekVideo(targetVideo, delta, container);
+
+        // 키보드 방향키 조작 시에도 스킵 버튼 표시 및 유지
+        if (targetVideo.__xControlsAttached) {
+          targetVideo.__xControlsAttached.classList.add('visible');
+          if (typeof targetVideo.__xControlsScheduleHide === 'function') {
+            targetVideo.__xControlsScheduleHide(3500);
+          }
+        }
       }
     }, true);
   }
